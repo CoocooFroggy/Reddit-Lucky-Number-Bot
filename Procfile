@@ -1,0 +1,1 @@
+worker: java -jar build/libs/Reddit Lucky Number Bot-1.0-all.jar

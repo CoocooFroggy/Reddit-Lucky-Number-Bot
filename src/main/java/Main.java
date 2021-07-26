@@ -30,8 +30,8 @@ public class Main {
         RedditClient reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
 
         // Paginator for r/all comments
-//        BarebonesPaginator<Comment> allComments = reddit.subreddit("all").comments()
-        BarebonesPaginator<Comment> allComments = reddit.subreddit("AnonymousBotTesting").comments()
+        BarebonesPaginator<Comment> allComments = reddit.subreddit("all").comments()
+//        BarebonesPaginator<Comment> allComments = reddit.subreddit("AnonymousBotTesting").comments()
                 .limit(Paginator.RECOMMENDED_MAX_LIMIT)
                 .build();
         commentLoop(reddit, allComments);

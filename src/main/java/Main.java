@@ -9,7 +9,10 @@ import net.dean.jraw.pagination.BarebonesPaginator;
 import net.dean.jraw.pagination.Paginator;
 import net.dean.jraw.references.CommentReference;
 
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,7 +27,7 @@ public class Main {
         Credentials oauthCreds = Credentials.script(username, password, clientId, clientSecret);
 
         // Create a unique User-Agent for our bot
-        UserAgent userAgent = new UserAgent("bot", "com.coocoofroggy.luckynumberbot", "1.0.0", "LuckyNumberBot");
+        UserAgent userAgent = new UserAgent("bot", "com.coocoofroggy.luckynumberbot", "1.0.1", "LuckyNumberBot");
 
         // Authenticate our client
         RedditClient reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
@@ -74,19 +77,35 @@ public class Main {
                             CommentReference commentReference = reddit.comment(comment.getId());
 
                             StringBuilder stringBuilder = new StringBuilder();
+                            NumberFormat nf = new DecimalFormat("##.###");
                             for (float number : numbers) {
-                                stringBuilder.append("    ").append(number).append(" +").append("\n");
+                                stringBuilder
+                                        // Code block
+                                        .append("    ")
+                                        // Number prettified
+                                        .append(nf.format(number))
+                                        // Addition symbol
+                                        .append(" +")
+                                        // New line
+                                        .append("\n");
                             }
 
-                            commentReference.reply(
+                            String replyUrl = commentReference.reply(
                                     "All the numbers in your comment added up to 69. Congrats!\n\n" +
                                             stringBuilder +
-                                            "    = 69.0"
-                            );
+                                            "    = 69"
+                            ).getUrl();
                             commentReference.save();
 
+                            //TODO: To not get shadowbanned, let's sleep a bit
+                            try {
+                                TimeUnit.MINUTES.sleep(120);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+
                             System.out.println(total);
-                            System.out.println(comment.getUrl());
+                            System.out.println(replyUrl);
                         }
                     }
                 }

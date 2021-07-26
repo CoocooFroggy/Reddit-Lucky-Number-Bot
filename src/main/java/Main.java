@@ -42,6 +42,11 @@ public class Main {
             for (Listing<Comment> commentListing : allComments) {
                 for (Comment comment : commentListing) {
                     String content = comment.getBody();
+
+                    // Ignore comments with brackets for links
+                    if (content.contains("[") | content.contains("["))
+                        continue;
+
                     Pattern numberPattern = Pattern.compile("\\d*\\.?\\d+");
                     Matcher numberMatcher = numberPattern.matcher(content);
 

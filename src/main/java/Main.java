@@ -38,57 +38,57 @@ public class Main {
     }
 
     public static void commentLoop(RedditClient reddit, BarebonesPaginator<Comment> allComments) {
-        for (Listing<Comment> commentListing : allComments) {
-            for (Comment comment : commentListing) {
-                String content = comment.getBody();
-                Pattern numberPattern = Pattern.compile("\\d*\\.?\\d+");
-                Matcher numberMatcher = numberPattern.matcher(content);
+        while (true) {
+            for (Listing<Comment> commentListing : allComments) {
+                for (Comment comment : commentListing) {
+                    String content = comment.getBody();
+                    Pattern numberPattern = Pattern.compile("\\d*\\.?\\d+");
+                    Matcher numberMatcher = numberPattern.matcher(content);
 
-                int matches = 0;
-                ArrayList<Float> numbers = new ArrayList<>();
-                double total = 0;
+                    int matches = 0;
+                    ArrayList<Float> numbers = new ArrayList<>();
+                    double total = 0;
 
-                while (numberMatcher.find()) {
-                    float number = Float.parseFloat(numberMatcher.group(0));
-                    // Don't count 0 as a number
-                    if (number == 0)
+                    while (numberMatcher.find()) {
+                        float number = Float.parseFloat(numberMatcher.group(0));
+                        // Don't count 0 as a number
+                        if (number == 0)
+                            continue;
+                        total += number;
+                        numbers.add(number);
+                        matches++;
+                    }
+
+                    // Skip saved comments
+                    if (comment.isSaved())
                         continue;
-                    total += number;
-                    numbers.add(number);
-                    matches++;
-                }
 
-                // Skip saved comments
-                if (comment.isSaved())
-                    continue;
+                    // If more than 1 number in their comment
+                    if (matches > 1) {
+                        if (total == 69) {
+                            CommentReference commentReference = reddit.comment(comment.getId());
 
-                // If more than 1 number in their comment
-                if (matches > 1) {
-                    if (total == 69) {
-                        CommentReference commentReference = reddit.comment(comment.getId());
+                            StringBuilder stringBuilder = new StringBuilder();
+                            for (float number : numbers) {
+                                stringBuilder.append("    ").append(number).append(" +").append("\n");
+                            }
 
-                        StringBuilder stringBuilder = new StringBuilder();
-                        for (float number: numbers) {
-                            stringBuilder.append("    ").append(number).append(" +").append("\n");
+                            commentReference.reply(
+                                    "All the numbers in your comment added up to 69. Congrats!\n\n" +
+                                            stringBuilder +
+                                            "    = 69.0"
+                            );
+                            commentReference.save();
+
+                            System.out.println(total);
+                            System.out.println(comment.getUrl());
                         }
-
-                        commentReference.reply(
-                                "All the numbers in your comment added up to 69. Congrats!\n\n" +
-                                        stringBuilder +
-                                        "    = 69.0"
-                        );
-                        commentReference.save();
-
-                        System.out.println(total);
-                        System.out.println(comment.getUrl());
                     }
                 }
-            }
 
-            // Restart the stream
-            allComments.restart();
-            // Start again
-            commentLoop(reddit, allComments);
+                // Restart the stream
+                allComments.restart();
+            }
         }
     }
 }

@@ -41,7 +41,7 @@ public class Main {
         for (Listing<Comment> commentListing : allComments) {
             for (Comment comment : commentListing) {
                 String content = comment.getBody();
-                Pattern numberPattern = Pattern.compile("\\d+\\.*\\d*");
+                Pattern numberPattern = Pattern.compile("\\d*\\.?\\d+");
                 Matcher numberMatcher = numberPattern.matcher(content);
 
                 int matches = 0;

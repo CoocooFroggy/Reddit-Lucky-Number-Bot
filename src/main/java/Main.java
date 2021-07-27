@@ -99,7 +99,7 @@ public class Main {
 
                             //TODO: To not get shadowbanned, let's sleep a bit
                             try {
-                                TimeUnit.MINUTES.sleep(120);
+                                TimeUnit.MINUTES.sleep(30);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }

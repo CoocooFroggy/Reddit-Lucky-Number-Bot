@@ -71,8 +71,8 @@ public class Main {
                     if (comment.isSaved())
                         continue;
 
-                    // If more than 1 number in their comment
-                    if (matches > 1) {
+                    // If more than 2 numbers in their comment
+                    if (matches > 2) {
                         if (total == 69) {
                             CommentReference commentReference = reddit.comment(comment.getId());
 
@@ -99,7 +99,7 @@ public class Main {
 
                             //TODO: To not get shadowbanned, let's sleep a bit
                             try {
-                                TimeUnit.MINUTES.sleep(30);
+                                TimeUnit.MINUTES.sleep(10);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }

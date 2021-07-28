@@ -97,12 +97,15 @@ public class Main {
                             ).getUrl();
                             commentReference.save();
 
-                            //TODO: To not get shadowbanned, let's sleep a bit
+                            // ~~To not get shadowbanned, let's sleep a bit~~
+                            // NO SLEEPING
+                            /*
                             try {
                                 TimeUnit.MINUTES.sleep(10);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
+                            */
 
                             System.out.println(total);
                             System.out.println(replyUrl);

@@ -73,7 +73,7 @@ public class Main {
 
                     // If more than 2 numbers in their comment
                     if (matches > 2) {
-                        if (total == 69) {
+                        if (total == 69 | total == 420) {
                             CommentReference commentReference = reddit.comment(comment.getId());
 
                             StringBuilder stringBuilder = new StringBuilder();
@@ -91,9 +91,9 @@ public class Main {
                             }
 
                             String replyUrl = commentReference.reply(
-                                    "All the numbers in your comment added up to 69. Congrats!\n\n" +
+                                    "All the numbers in your comment added up to " + total + ". Congrats!\n\n" +
                                             stringBuilder +
-                                            "    = 69"
+                                            "    = " + total
                             ).getUrl();
                             commentReference.save();
 

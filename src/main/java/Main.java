@@ -99,13 +99,13 @@ public class Main {
 
                             // ~~To not get shadowbanned, let's sleep a bit~~
                             //
-                            
+                            /*
                             try {
                                 TimeUnit.MINUTES.sleep(10);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
-                            
+                            */
 
                             System.out.println(total);
                             System.out.println(replyUrl);

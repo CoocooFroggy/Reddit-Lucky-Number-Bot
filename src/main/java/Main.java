@@ -91,7 +91,7 @@ public class Main {
                             }
 
                             String replyUrl = commentReference.reply(
-                                    "All the numbers in your comment added up to " + total + ". Congrats!\n\n" +
+                                    "All the numbers in your comment added up to " + nf.format(total) + ". Congrats!\n\n" +
                                             stringBuilder +
                                             "    = " + total
                             ).getUrl();

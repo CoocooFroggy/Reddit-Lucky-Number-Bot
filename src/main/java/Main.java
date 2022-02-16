@@ -1,3 +1,4 @@
+import net.dean.jraw.ApiException;
 import net.dean.jraw.RedditClient;
 import net.dean.jraw.http.OkHttpNetworkAdapter;
 import net.dean.jraw.http.UserAgent;
@@ -94,12 +95,17 @@ public class Main {
                                         // New line
                                         .append("\n");
                             }
-
-                            String replyUrl = commentReference.reply(
-                                    "All the numbers in your comment added up to " + nf.format(total) + ". Congrats!\n\n" +
-                                            stringBuilder +
-                                            "    = " + nf.format(total)
-                            ).getUrl();
+                            String replyUrl;
+                            try {
+                                replyUrl = commentReference.reply(
+                                        "All the numbers in your comment added up to " + nf.format(total) + ". Congrats!\n\n" +
+                                                stringBuilder +
+                                                "    = " + nf.format(total)).getUrl();
+                            } catch (ApiException e) {
+                                e.printStackTrace();
+                                commentReference.save();
+                                continue;
+                            }
                             commentReference.save();
 
                             // ~~To not get shadowbanned, let's sleep a bit~~

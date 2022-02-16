@@ -86,6 +86,8 @@ public class Main {
                                         if (i != 0) {
                                             // Addition symbol
                                             stringBuilder.append("+ ");
+                                        } else {
+                                            stringBuilder.append("  ");
                                         }
                                         // Number prettified
                                         stringBuilder.append(nf.format(number))

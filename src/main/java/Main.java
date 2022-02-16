@@ -78,14 +78,17 @@ public class Main {
 
                             StringBuilder stringBuilder = new StringBuilder();
                             NumberFormat nf = new DecimalFormat("##.###");
-                            for (float number : numbers) {
+                            for (int i = 0; i < numbers.size(); i++) {
+                                float number = numbers.get(i);
                                 stringBuilder
                                         // Code block
-                                        .append("    ")
+                                        .append("    ");
+                                        if (i != 0) {
+                                            // Addition symbol
+                                            stringBuilder.append("+ ");
+                                        }
                                         // Number prettified
-                                        .append(nf.format(number))
-                                        // Addition symbol
-                                        .append(" +")
+                                        stringBuilder.append(nf.format(number))
                                         // New line
                                         .append("\n");
                             }
@@ -93,7 +96,7 @@ public class Main {
                             String replyUrl = commentReference.reply(
                                     "All the numbers in your comment added up to " + nf.format(total) + ". Congrats!\n\n" +
                                             stringBuilder +
-                                            "    = " + total
+                                            "    = " + nf.format(total)
                             ).getUrl();
                             commentReference.save();
 

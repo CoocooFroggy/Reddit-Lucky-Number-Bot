@@ -16,9 +16,6 @@ import net.dean.jraw.references.CommentReference;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,8 +35,16 @@ public class Main {
         // Authenticate our client
         RedditClient reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
 
-        new Thread(() -> allCommentLoop(reddit)).start();
-        new Thread(() -> userCommentLoop(reddit, "DJd0ntplay")).start();
+        new Thread(() -> {
+            while (true) {
+                allCommentLoop(reddit);
+            }
+        }).start();
+        new Thread(() -> {
+            while (true) {
+                userCommentLoop(reddit, "DJd0ntplay");
+            }
+        }).start();
     }
 
     public static void allCommentLoop(RedditClient reddit) {
@@ -50,11 +55,7 @@ public class Main {
         Listing<Comment> commentListing = allComments.next();
         for (Comment comment : commentListing) {
             String content = comment.getBody();
-
-            if (countComment(reddit, comment, content)) continue;
-
-            // Restart the stream
-            allComments.restart();
+            countComment(reddit, comment, content);
         }
     }
 
@@ -67,18 +68,14 @@ public class Main {
         for (PublicContribution<?> contribution : commentListing) {
             Comment comment = (Comment) contribution;
             String content = comment.getBody();
-
-            if (countComment(reddit, comment, content)) continue;
-
-            // Restart the stream
-            userComments.restart();
+            countComment(reddit, comment, content);
         }
     }
 
-    private static boolean countComment(RedditClient reddit, Comment comment, String content) {
+    private static void countComment(RedditClient reddit, Comment comment, String content) {
         // Ignore comments with brackets for links
         if (content.contains("[") | content.contains("["))
-            return true;
+            return;
 
         Pattern numberPattern = Pattern.compile("\\d*\\.?\\d+");
         Matcher numberMatcher = numberPattern.matcher(content);
@@ -99,7 +96,7 @@ public class Main {
 
         // Skip saved comments
         if (comment.isSaved())
-            return true;
+            return;
 
         // If more than 2 numbers in their comment
         if (matches > 2) {
@@ -133,7 +130,7 @@ public class Main {
                 } catch (ApiException e) {
                     e.printStackTrace();
                     commentReference.save();
-                    return true;
+                    return;
                 }
                 commentReference.save();
 
@@ -151,6 +148,5 @@ public class Main {
                 System.out.println(replyUrl);
             }
         }
-        return false;
     }
 }

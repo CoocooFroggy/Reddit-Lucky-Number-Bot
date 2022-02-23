@@ -93,10 +93,8 @@ public class Main {
                         } else {
                             reply(message, "Your new messages are already being scanned for Lucky Numbers!", inbox);
                         }
-                        inbox.markRead(true, message.getFullName());
                     } else {
                         reply(message, "Something went wrong. Please try again!", inbox);
-                        inbox.markRead(true, message.getFullName());
                     }
                     continue;
                 }
@@ -108,12 +106,11 @@ public class Main {
                         } else {
                             reply(message, "Your new messages are not being scanned for Lucky Numbers. Use `!add` to opt in.", inbox);
                         }
-                        inbox.markRead(true, message.getFullName());
                     } else {
                         reply(message, "Something went wrong. Please try again!", inbox);
-                        inbox.markRead(true, message.getFullName());
                     }
                 }
+                inbox.markRead(true, message.getFullName());
             }
         }
     }

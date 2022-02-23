@@ -41,10 +41,39 @@ public class Main {
 
         // Authenticate our client
         RedditClient reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
+        InboxReference inbox = reddit.me().inbox();
 
         MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
 
-        InboxReference inbox = reddit.me().inbox();
+        // r/all always has a thread running
+        new Thread(() -> {
+            while (true) {
+                allCommentLoop(reddit);
+            }
+        }).start();
+
+        // Inbox always has a thread running
+        new Thread(() -> {
+            while (true) {
+                inboxLoop(reddit, inbox);
+            }
+        }).start();
+
+        // Users take turns to share this thread
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
+                for (LNUser user : manuallySearchingUsers) {
+                    userCommentLoop(reddit, user.getUsername());
+                }
+            }
+        }, 0, TimeUnit.MINUTES.toMillis(1));
+        // There's always at least one minute of break for MongoDB.
+        // This task won't overlap, even if it lasts more than 1 minute.
+    }
+
+    private static void inboxLoop(RedditClient reddit, InboxReference inbox) {
         BarebonesPaginator<Message> inboxIterate = inbox.iterate("unread")
                 .limit(Paginator.RECOMMENDED_MAX_LIMIT)
                 .build();
@@ -87,26 +116,6 @@ public class Main {
                 }
             }
         }
-
-        // r/all always has a thread running
-        new Thread(() -> {
-            while (true) {
-                allCommentLoop(reddit);
-            }
-        }).start();
-
-        // Users take turns to share this thread
-        new Timer().scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
-                for (LNUser user : manuallySearchingUsers) {
-                    userCommentLoop(reddit, user.getUsername());
-                }
-            }
-        }, 0, TimeUnit.MINUTES.toMillis(1));
-        // There's always at least one minute of break for MongoDB.
-        // This task won't overlap, even if it lasts more than 1 minute.
     }
 
     public static void allCommentLoop(RedditClient reddit) {

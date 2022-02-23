@@ -83,7 +83,7 @@ public class Main {
             for (Message message : messages) {
                 final String body = message.getBody();
                 if (message.isComment()) {
-                    countComment(reddit, (Comment) reddit.lookup(message.getFullName()).get(0), body);
+                    countComment(reddit, (Comment) reddit.lookup(message.getFullName()).getChildren().get(0), body);
                 }
                 if (body.contains("!add")) {
                     UpdateResult result = MongoUtils.addUserToManualSearch(message.getAuthor());
@@ -96,9 +96,7 @@ public class Main {
                     } else {
                         reply(message, "Something went wrong. Please try again!", inbox);
                     }
-                    continue;
-                }
-                if (body.contains("!remove")) {
+                } else if (body.contains("!remove")) {
                     UpdateResult result = MongoUtils.removeUserFromManualSearch(message.getAuthor());
                     if (result.wasAcknowledged()) {
                         if (result.getModifiedCount() > 0) {

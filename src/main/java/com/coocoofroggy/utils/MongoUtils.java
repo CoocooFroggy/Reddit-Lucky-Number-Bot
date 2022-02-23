@@ -3,7 +3,9 @@ package com.coocoofroggy.utils;
 import com.coocoofroggy.objects.LNUser;
 import com.mongodb.client.*;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.UpdateResult;
 import org.bson.Document;
 
@@ -22,22 +24,20 @@ public class MongoUtils {
         return database.getCollection("Users");
     }
 
-    private static UpdateResult updateUserInDatabase(LNUser user) {
+    public static UpdateResult addUserToManualSearch(String username) {
         MongoCollection<Document> usersCollection = getUsersCollection();
         return usersCollection.updateOne(
-                Filters.eq("username", user.getUsername()),
-                user.toDocument(),
+                Filters.eq("username", username),
+                Updates.set("manuallySearching", true),
                 new UpdateOptions().upsert(true)); // Upsert means insert if no update
     }
 
-    public static UpdateResult addUserToManualSearch(String username) {
-        return updateUserInDatabase(
-                new LNUser(username, true));
-    }
-
     public static UpdateResult removeUserFromManualSearch(String username) {
-        return updateUserInDatabase(
-                new LNUser(username, false));
+        MongoCollection<Document> usersCollection = getUsersCollection();
+        return usersCollection.updateOne(
+                Filters.eq("username", username),
+                Updates.set("manuallySearching", false),
+                new UpdateOptions().upsert(true)); // Upsert means insert if no update
     }
 
     public static List<LNUser> fetchManuallySearchingUsers() {

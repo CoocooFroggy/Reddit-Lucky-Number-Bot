@@ -1,21 +1,28 @@
+package com.coocoofroggy;
+
+import com.coocoofroggy.objects.LNUser;
+import com.coocoofroggy.utils.MongoUtils;
+import com.mongodb.client.result.UpdateResult;
 import net.dean.jraw.ApiException;
 import net.dean.jraw.RedditClient;
 import net.dean.jraw.http.OkHttpNetworkAdapter;
 import net.dean.jraw.http.UserAgent;
-import net.dean.jraw.models.Comment;
-import net.dean.jraw.models.Listing;
-import net.dean.jraw.models.PublicContribution;
-import net.dean.jraw.models.UserHistorySort;
+import net.dean.jraw.models.*;
 import net.dean.jraw.oauth.Credentials;
 import net.dean.jraw.oauth.OAuthHelper;
 import net.dean.jraw.pagination.BarebonesPaginator;
 import net.dean.jraw.pagination.DefaultPaginator;
 import net.dean.jraw.pagination.Paginator;
 import net.dean.jraw.references.CommentReference;
+import net.dean.jraw.references.InboxReference;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,16 +42,71 @@ public class Main {
         // Authenticate our client
         RedditClient reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
 
+        MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
+
+        InboxReference inbox = reddit.me().inbox();
+        BarebonesPaginator<Message> inboxIterate = inbox.iterate("unread")
+                .limit(Paginator.RECOMMENDED_MAX_LIMIT)
+                .build();
+        // Loop through every page of unread messages
+        for (Listing<Message> messages : inboxIterate) {
+            // Every message on the page
+            for (Message message : messages) {
+                final String body = message.getBody();
+                if (message.isComment()) {
+                    countComment(reddit, (Comment) reddit.lookup(message.getFullName()).get(0), body);
+                }
+                if (body.contains("!add")) {
+                    UpdateResult result = MongoUtils.addUserToManualSearch(message.getAuthor());
+                    if (result.wasAcknowledged()) {
+                        if (result.getModifiedCount() > 0) {
+                            reply(message, "All your new messages will now be scanned for Lucky Numbers!", inbox);
+                        } else {
+                            reply(message, "Your new messages are already being scanned for Lucky Numbers!", inbox);
+                        }
+                        inbox.markRead(true, message.getFullName());
+                    } else {
+                        reply(message, "Something went wrong. Please try again!", inbox);
+                        inbox.markRead(true, message.getFullName());
+                    }
+                    continue;
+                }
+                if (body.contains("!remove")) {
+                    UpdateResult result = MongoUtils.removeUserFromManualSearch(message.getAuthor());
+                    if (result.wasAcknowledged()) {
+                        if (result.getModifiedCount() > 0) {
+                            reply(message, "Your new messages will no longer be scanned for Lucky Numbers.", inbox);
+                        } else {
+                            reply(message, "Your new messages are not being scanned for Lucky Numbers. Use `!add` to opt in.", inbox);
+                        }
+                        inbox.markRead(true, message.getFullName());
+                    } else {
+                        reply(message, "Something went wrong. Please try again!", inbox);
+                        inbox.markRead(true, message.getFullName());
+                    }
+                }
+            }
+        }
+
+        // r/all always has a thread running
         new Thread(() -> {
             while (true) {
                 allCommentLoop(reddit);
             }
         }).start();
-        new Thread(() -> {
-            while (true) {
-                userCommentLoop(reddit, "DJd0ntplay");
+
+        // Users take turns to share this thread
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
+                for (LNUser user : manuallySearchingUsers) {
+                    userCommentLoop(reddit, user.getUsername());
+                }
             }
-        }).start();
+        }, 0, TimeUnit.MINUTES.toMillis(1));
+        // There's always at least one minute of break for MongoDB.
+        // This task won't overlap, even if it lasts more than 1 minute.
     }
 
     public static void allCommentLoop(RedditClient reddit) {
@@ -147,6 +209,15 @@ public class Main {
                 System.out.println(total);
                 System.out.println(replyUrl);
             }
+        }
+    }
+
+    private static void reply(Message message, String replyBody, InboxReference inbox) {
+        if (message.isComment()) {
+            if (message.getAuthor() == null) return;
+            inbox.compose(message.getAuthor(), "Lucky Message", replyBody);
+        } else {
+            inbox.replyTo(message.getFullName(), replyBody);
         }
     }
 }

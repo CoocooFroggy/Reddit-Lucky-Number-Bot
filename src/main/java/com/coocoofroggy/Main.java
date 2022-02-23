@@ -41,6 +41,7 @@ public class Main {
 
         // Authenticate our client
         RedditClient reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
+        reddit.setLogHttp(false);
         InboxReference inbox = reddit.me().inbox();
 
         MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
@@ -53,11 +54,12 @@ public class Main {
         }).start();
 
         // Inbox always has a thread running
-        new Thread(() -> {
-            while (true) {
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
                 inboxLoop(reddit, inbox);
             }
-        }).start();
+        }, 0, TimeUnit.SECONDS.toMillis(5));
 
         // Users take turns to share this thread
         new Timer().scheduleAtFixedRate(new TimerTask() {
@@ -187,12 +189,12 @@ public class Main {
                             // New line
                             .append("\n");
                 }
-                String replyUrl;
                 try {
-                    replyUrl = commentReference.reply(
+                    String replyUrl = commentReference.reply(
                             "All the numbers in your comment added up to " + nf.format(total) + ". Congrats!\n\n" +
                                     stringBuilder +
                                     "    = " + nf.format(total)).getUrl();
+                    System.out.println("New comment: " + replyUrl);
                 } catch (ApiException e) {
                     e.printStackTrace();
                     commentReference.save();
@@ -209,9 +211,6 @@ public class Main {
                             e.printStackTrace();
                         }
                         */
-
-                System.out.println(total);
-                System.out.println(replyUrl);
             }
         }
     }
@@ -223,5 +222,6 @@ public class Main {
         } else {
             inbox.replyTo(message.getFullName(), replyBody);
         }
+        System.out.println("New reply to DM");
     }
 }

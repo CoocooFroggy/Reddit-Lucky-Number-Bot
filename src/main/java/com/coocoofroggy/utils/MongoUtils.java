@@ -3,7 +3,6 @@ package com.coocoofroggy.utils;
 import com.coocoofroggy.objects.LNUser;
 import com.mongodb.client.*;
 import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.UpdateResult;

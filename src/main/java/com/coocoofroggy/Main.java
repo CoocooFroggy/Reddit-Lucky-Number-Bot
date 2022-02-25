@@ -41,7 +41,7 @@ public class Main {
 
         // Authenticate our client
         RedditClient reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
-        reddit.setLogHttp(false);
+//        reddit.setLogHttp(false);
         InboxReference inbox = reddit.me().inbox();
 
         MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));

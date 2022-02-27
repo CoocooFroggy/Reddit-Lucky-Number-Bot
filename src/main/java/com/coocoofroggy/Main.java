@@ -47,11 +47,12 @@ public class Main {
         MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
 
         // r/all always has a thread running
-        new Thread(() -> {
-            while (true) {
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
                 allCommentLoop(reddit);
             }
-        }).start();
+        }, 0, 1);
 
         // Inbox always has a thread running
         new Timer().scheduleAtFixedRate(new TimerTask() {

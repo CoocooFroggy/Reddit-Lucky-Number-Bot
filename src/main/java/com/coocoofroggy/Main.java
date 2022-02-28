@@ -45,9 +45,7 @@ public class Main {
         reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
         // Don't show http requests if uncommented
 //        reddit.setLogHttp(false);
-        InboxReference inbox = reddit.me().inbox();
 
-        MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
 
         // Note: new Timer().schedule() not .scheduleAtFixedRate()
         // Fixed rate will stop other threads from doing their job by jumping first in line again
@@ -60,6 +58,7 @@ public class Main {
             }
         }, 0, 1);
 
+        InboxReference inbox = reddit.me().inbox();
         // Inbox always has a thread running
         new Timer("Inbox").schedule(new TimerTask() {
             @Override
@@ -68,6 +67,8 @@ public class Main {
             }
         }, 0, TimeUnit.SECONDS.toMillis(10));
 
+        // Connect to DB
+        MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
         // Users take turns to share this thread
         new Timer("Users").schedule(new TimerTask() {
             @Override
@@ -213,7 +214,7 @@ public class Main {
                             .append("\n");
                 }
                 try {
-                    String replyUrl = commentReference.reply(
+                    commentReference.reply(
                             "All the numbers in your comment added up to " + nf.format(total) + ". Congrats!\n\n" +
                                     stringBuilder +
                                     "    = " + nf.format(total)).getUrl();

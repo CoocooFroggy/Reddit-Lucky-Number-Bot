@@ -43,17 +43,18 @@ public class Main {
 
         // Authenticate our client
         reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
-        reddit.setLogHttp(false);
+//        reddit.setLogHttp(false);
         InboxReference inbox = reddit.me().inbox();
 
         MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
 
         // r/all always has a thread running
-        new Thread(() -> {
-            while (true) {
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
                 allCommentLoop();
             }
-        }).start();
+        }, 0, 1);
 
         // Inbox always has a thread running
         new Timer().scheduleAtFixedRate(new TimerTask() {

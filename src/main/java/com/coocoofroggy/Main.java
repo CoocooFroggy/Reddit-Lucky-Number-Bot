@@ -43,29 +43,33 @@ public class Main {
 
         // Authenticate our client
         reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
-//        reddit.setLogHttp(false);
+        // Don't show http requests
+        reddit.setLogHttp(false);
         InboxReference inbox = reddit.me().inbox();
 
         MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
 
+        // Note: new Timer().schedule() not .scheduleAtFixedRate()
+        // Fixed rate will stop other threads from doing their job by jumping first in line again
+
         // r/all always has a thread running
-        new Timer().schedule(new TimerTask() {
+        new Timer("r/all").schedule(new TimerTask() {
             @Override
             public void run() {
                 allCommentLoop();
             }
-        }, 0, TimeUnit.SECONDS.toMillis(5));
+        }, 0, 1);
 
         // Inbox always has a thread running
-        new Timer().scheduleAtFixedRate(new TimerTask() {
+        new Timer("Inbox").schedule(new TimerTask() {
             @Override
             public void run() {
                 inboxLoop(inbox);
             }
-        }, 0, TimeUnit.SECONDS.toMillis(5));
+        }, 0, TimeUnit.SECONDS.toMillis(10));
 
         // Users take turns to share this thread
-        new Timer().scheduleAtFixedRate(new TimerTask() {
+        new Timer("Users").schedule(new TimerTask() {
             @Override
             public void run() {
                 List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();

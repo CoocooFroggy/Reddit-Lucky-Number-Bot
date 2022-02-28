@@ -27,6 +27,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Main {
+    static RedditClient reddit;
+
     public static void main(String[] args) {
         String username = System.getenv("LUCKYNUM_USERNAME");
         String password = System.getenv("LUCKYNUM_PASSWORD");
@@ -40,7 +42,7 @@ public class Main {
         UserAgent userAgent = new UserAgent("bot", "com.coocoofroggy.luckynumberbot", "1.0.2", "LuckyNumberBot");
 
         // Authenticate our client
-        RedditClient reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
+        reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
         reddit.setLogHttp(false);
         InboxReference inbox = reddit.me().inbox();
 
@@ -49,7 +51,7 @@ public class Main {
         // r/all always has a thread running
         new Thread(() -> {
             while (true) {
-                allCommentLoop(reddit);
+                allCommentLoop();
             }
         }).start();
 
@@ -57,7 +59,7 @@ public class Main {
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
-                inboxLoop(reddit, inbox);
+                inboxLoop(inbox);
             }
         }, 0, TimeUnit.SECONDS.toMillis(5));
 
@@ -67,7 +69,7 @@ public class Main {
             public void run() {
                 List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
                 for (LNUser user : manuallySearchingUsers) {
-                    userCommentLoop(reddit, user.getUsername());
+                    userCommentLoop(user.getUsername());
                 }
             }
         }, 0, TimeUnit.MINUTES.toMillis(1));
@@ -75,7 +77,7 @@ public class Main {
         // This task won't overlap, even if it lasts more than 1 minute.
     }
 
-    private static void inboxLoop(RedditClient reddit, InboxReference inbox) {
+    private static void inboxLoop(InboxReference inbox) {
         BarebonesPaginator<Message> inboxIterate = inbox.iterate("unread")
                 .limit(Paginator.RECOMMENDED_MAX_LIMIT)
                 .build();
@@ -85,7 +87,20 @@ public class Main {
             for (Message message : messages) {
                 final String body = message.getBody();
                 if (message.isComment()) {
-                    countComment(reddit, (Comment) reddit.lookup(message.getFullName()).getChildren().get(0), body);
+                    Comment comment = (Comment) reddit.lookup(message.getFullName()).getChildren().get(0);
+                    countComment(comment);
+                    // If the comment mentions us
+                    if (mentionsSelf(body)) {
+                        String parentFullName = comment.getParentFullName();
+                        // Check all the parent comments
+                        // While the parent ID is still a comment
+                        while (parentFullName.startsWith("t1")) {
+                            // Count it
+                            Comment parentComment = (Comment) reddit.lookup(parentFullName).getChildren().get(0);
+                            countComment(parentComment);
+                            parentFullName = parentComment.getParentFullName();
+                        }
+                    }
                 }
                 if (body.contains("!add")) {
                     UpdateResult result = MongoUtils.addUserToManualSearch(message.getAuthor());
@@ -115,19 +130,22 @@ public class Main {
         }
     }
 
-    public static void allCommentLoop(RedditClient reddit) {
+    private static boolean mentionsSelf(String body) {
+        return (body.contains(("u/" + reddit.me().getUsername()).toLowerCase()));
+    }
+
+    public static void allCommentLoop() {
         // Paginator for r/all comments
         BarebonesPaginator<Comment> allComments = reddit.subreddit("all").comments()
                 .limit(Paginator.RECOMMENDED_MAX_LIMIT)
                 .build();
         Listing<Comment> commentListing = allComments.next();
         for (Comment comment : commentListing) {
-            String content = comment.getBody();
-            countComment(reddit, comment, content);
+            countComment(comment);
         }
     }
 
-    public static void userCommentLoop(RedditClient reddit, String username) {
+    public static void userCommentLoop(String username) {
         DefaultPaginator<PublicContribution<?>> userComments = reddit.user(username).history("comments")
                 .sorting(UserHistorySort.NEW)
                 .limit(Paginator.RECOMMENDED_MAX_LIMIT)
@@ -135,12 +153,12 @@ public class Main {
         Listing<PublicContribution<?>> commentListing = userComments.next();
         for (PublicContribution<?> contribution : commentListing) {
             Comment comment = (Comment) contribution;
-            String content = comment.getBody();
-            countComment(reddit, comment, content);
+            countComment(comment);
         }
     }
 
-    private static void countComment(RedditClient reddit, Comment comment, String content) {
+    private static void countComment(Comment comment) {
+        String content = comment.getBody();
         // Ignore comments with brackets for links
         if (content.contains("[") | content.contains("["))
             return;
@@ -202,15 +220,12 @@ public class Main {
                 }
                 commentReference.save();
 
-                // ~~To not get shadowbanned, let's sleep a bit~~
-                //
-                        /*
-                        try {
-                            TimeUnit.MINUTES.sleep(10);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        */
+                // ~~To not get shadow-banned, let's sleep a bit~~
+//                try {
+//                    TimeUnit.MINUTES.sleep(10);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
             }
         }
     }

@@ -49,12 +49,12 @@ public class Main {
         MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
 
         // r/all always has a thread running
-        new Timer().scheduleAtFixedRate(new TimerTask() {
+        new Timer().schedule(new TimerTask() {
             @Override
             public void run() {
                 allCommentLoop();
             }
-        }, 0, 1);
+        }, 0, TimeUnit.SECONDS.toMillis(5));
 
         // Inbox always has a thread running
         new Timer().scheduleAtFixedRate(new TimerTask() {

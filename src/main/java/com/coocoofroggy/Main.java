@@ -95,9 +95,7 @@ public class Main {
                         String parentFullName = comment.getParentFullName();
                         // Check all the parent comments
                         // While the parent ID is still a comment
-                        System.out.println("DOES IT START WITH T1?");
                         while (parentFullName.startsWith("t1")) {
-                            System.out.println("COUNTING");
                             // Count it
                             Comment parentComment = (Comment) reddit.lookup(parentFullName).getChildren().get(0);
                             countComment(parentComment);
@@ -215,7 +213,6 @@ public class Main {
                             "All the numbers in your comment added up to " + nf.format(total) + ". Congrats!\n\n" +
                                     stringBuilder +
                                     "    = " + nf.format(total)).getUrl();
-                    System.out.println("New comment: " + replyUrl);
                 } catch (ApiException e) {
                     e.printStackTrace();
                     commentReference.save();
@@ -240,6 +237,5 @@ public class Main {
         } else {
             inbox.replyTo(message.getFullName(), replyBody);
         }
-        System.out.println("New reply to DM");
     }
 }

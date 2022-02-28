@@ -95,7 +95,9 @@ public class Main {
                         String parentFullName = comment.getParentFullName();
                         // Check all the parent comments
                         // While the parent ID is still a comment
+                        System.out.println("DOES IT START WITH T1?");
                         while (parentFullName.startsWith("t1")) {
+                            System.out.println("COUNTING");
                             // Count it
                             Comment parentComment = (Comment) reddit.lookup(parentFullName).getChildren().get(0);
                             countComment(parentComment);
@@ -132,7 +134,7 @@ public class Main {
     }
 
     private static boolean mentionsSelf(String body) {
-        return (body.contains(("u/" + reddit.me().getUsername()).toLowerCase()));
+        return (body.toLowerCase().contains(("u/" + reddit.me().getUsername()).toLowerCase()));
     }
 
     public static void allCommentLoop() {

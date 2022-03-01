@@ -36,15 +36,15 @@ public class Main {
         String clientSecret = System.getenv("LUCKYNUM_CLIENTSECRET");
 
         // Assuming we have a 'script' reddit app
-        Credentials oauthCreds = Credentials.script(username, password, clientId, clientSecret);
+        Credentials oAuthCredentials = Credentials.script(username, password, clientId, clientSecret);
 
         // Create a unique User-Agent for our bot
         UserAgent userAgent = new UserAgent("bot", "com.coocoofroggy.luckynumberbot", "1.0.2", "LuckyNumberBot");
 
         // Authenticate our client
-        reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
+        reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oAuthCredentials);
         // Don't show http requests if uncommented
-        reddit.setLogHttp(false);
+//        reddit.setLogHttp(false);
 
 
         // Note: new Timer().schedule() not .scheduleAtFixedRate()
@@ -54,8 +54,11 @@ public class Main {
         new Timer("r/all").schedule(new TimerTask() {
             @Override
             public void run() {
-                Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> throwable.printStackTrace());
-                allCommentLoop();
+                try {
+                    allCommentLoop();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }, 0, TimeUnit.SECONDS.toMillis(1));
 
@@ -64,8 +67,11 @@ public class Main {
         new Timer("Inbox").schedule(new TimerTask() {
             @Override
             public void run() {
-                Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> throwable.printStackTrace());
-                inboxLoop(inbox);
+                try {
+                    inboxLoop(inbox);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }, 0, TimeUnit.SECONDS.toMillis(10));
 
@@ -75,16 +81,21 @@ public class Main {
         new Timer("Users").schedule(new TimerTask() {
             @Override
             public void run() {
-                Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> throwable.printStackTrace());
-                List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
-                for (LNUser user : manuallySearchingUsers) {
-                    userCommentLoop(user.getUsername());
+                try {
+                    List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
+                    for (LNUser user : manuallySearchingUsers) {
+                        userCommentLoop(user.getUsername());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
         }, 0, TimeUnit.MINUTES.toMillis(1));
         // There's always at least one minute of break for MongoDB.
         // This task won't overlap, even if it lasts more than 1 minute.
     }
+
+    // Methods
 
     private static void inboxLoop(InboxReference inbox) {
         BarebonesPaginator<Message> inboxIterate = inbox.iterate("unread")
@@ -96,18 +107,17 @@ public class Main {
             for (Message message : messages) {
                 final String body = message.getBody();
                 if (message.isComment()) {
-                    Comment comment = (Comment) reddit.lookup(message.getFullName()).getChildren().get(0);
-                    countComment(comment);
-                    // If the comment mentions us
-                    if (mentionsSelf(body)) {
-                        String parentFullName = comment.getParentFullName();
-                        // Check all the parent comments
-                        // While the parent ID is still a comment
-                        while (parentFullName.startsWith("t1")) {
-                            // Count it
-                            Comment parentComment = (Comment) reddit.lookup(parentFullName).getChildren().get(0);
-                            countComment(parentComment);
-                            parentFullName = parentComment.getParentFullName();
+                    List<Object> lookupResultList = reddit.lookup(message.getFullName()).getChildren();
+                    // Sometimes the comment is deleted or something, ignore when that happens
+                    if (!lookupResultList.isEmpty()) {
+                        // We can cast to Comment because we already checked for isComment() above
+                        Comment comment = (Comment) lookupResultList.get(0);
+                        // Count this comment
+                        countComment(comment);
+                        // If the comment mentions us
+                        if (mentionsSelf(body)) {
+                            // Count all comments above
+                            countCommentsUpTree(comment);
                         }
                     }
                 }
@@ -136,6 +146,18 @@ public class Main {
                 }
                 inbox.markRead(true, message.getFullName());
             }
+        }
+    }
+
+    private static void countCommentsUpTree(Comment comment) {
+        String parentFullName = comment.getParentFullName();
+        // Check all the parent comments
+        // While the parent ID is still a comment
+        while (parentFullName.startsWith("t1")) {
+            // Count it
+            Comment parentComment = (Comment) reddit.lookup(parentFullName).getChildren().get(0);
+            countComment(parentComment);
+            parentFullName = parentComment.getParentFullName();
         }
     }
 

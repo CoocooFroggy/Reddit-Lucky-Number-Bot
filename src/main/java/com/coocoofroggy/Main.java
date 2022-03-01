@@ -44,7 +44,7 @@ public class Main {
         // Authenticate our client
         reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oauthCreds);
         // Don't show http requests if uncommented
-//        reddit.setLogHttp(false);
+        reddit.setLogHttp(false);
 
 
         // Note: new Timer().schedule() not .scheduleAtFixedRate()
@@ -54,15 +54,17 @@ public class Main {
         new Timer("r/all").schedule(new TimerTask() {
             @Override
             public void run() {
+                Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> throwable.printStackTrace());
                 allCommentLoop();
             }
-        }, 0, 1);
+        }, 0, TimeUnit.SECONDS.toMillis(1));
 
         InboxReference inbox = reddit.me().inbox();
         // Inbox always has a thread running
         new Timer("Inbox").schedule(new TimerTask() {
             @Override
             public void run() {
+                Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> throwable.printStackTrace());
                 inboxLoop(inbox);
             }
         }, 0, TimeUnit.SECONDS.toMillis(10));
@@ -73,6 +75,7 @@ public class Main {
         new Timer("Users").schedule(new TimerTask() {
             @Override
             public void run() {
+                Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> throwable.printStackTrace());
                 List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
                 for (LNUser user : manuallySearchingUsers) {
                     userCommentLoop(user.getUsername());

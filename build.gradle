@@ -25,6 +25,8 @@ dependencies {
     implementation group: 'org.mongodb', name: 'mongodb-driver-sync', version: '4.5.0'
     // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.10'
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-text
+    implementation group: 'org.apache.commons', name: 'commons-text', version: '1.9'
 }
 
 test {

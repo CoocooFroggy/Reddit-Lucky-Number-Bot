@@ -1,6 +1,9 @@
 package com.coocoofroggy;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 import com.coocoofroggy.objects.LNUser;
+import com.coocoofroggy.utils.LuckyConfig;
 import com.coocoofroggy.utils.MongoUtils;
 import com.mongodb.client.result.UpdateResult;
 import net.dean.jraw.ApiException;
@@ -15,87 +18,148 @@ import net.dean.jraw.pagination.DefaultPaginator;
 import net.dean.jraw.pagination.Paginator;
 import net.dean.jraw.references.CommentReference;
 import net.dean.jraw.references.InboxReference;
+import org.apache.commons.text.StringSubstitutor;
+import org.slf4j.LoggerFactory;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Main {
+    public static final String USERNAME = System.getenv("LUCKYNUM_USERNAME");
+    
     static RedditClient reddit;
+    
+    final static Logger logger = ((Logger) LoggerFactory.getLogger(Main.class));
+
+    // DEBUG
+    private static final boolean debugMode = true;
 
     public static void main(String[] args) {
-        String username = System.getenv("LUCKYNUM_USERNAME");
-        String password = System.getenv("LUCKYNUM_PASSWORD");
-        String clientId = System.getenv("LUCKYNUM_CLIENTID");
-        String clientSecret = System.getenv("LUCKYNUM_CLIENTSECRET");
-
-        // Assuming we have a 'script' reddit app
-        Credentials oAuthCredentials = Credentials.script(username, password, clientId, clientSecret);
-
+        final String PASSWORD = System.getenv("LUCKYNUM_PASSWORD");
+        final String CLIENT_SECRET = System.getenv("LUCKYNUM_CLIENTSECRET");
+        final String CLIENT_ID = System.getenv("LUCKYNUM_CLIENTID");
+        
+        // We have a 'script' reddit app
+        Credentials oAuthCredentials = Credentials.script(USERNAME, PASSWORD, CLIENT_ID, CLIENT_SECRET);
         // Create a unique User-Agent for our bot
-        UserAgent userAgent = new UserAgent("bot", "com.coocoofroggy.luckynumberbot", "1.0.2", "LuckyNumberBot");
-
+        UserAgent userAgent = new UserAgent("bot", "com.coocoofroggy.luckynumberbot", "1.0.3", USERNAME);
         // Authenticate our client
         reddit = OAuthHelper.automatic(new OkHttpNetworkAdapter(userAgent), oAuthCredentials);
         // Don't show http requests if uncommented
 //        reddit.setLogHttp(false);
 
 
-        // Note: new Timer().schedule() not .scheduleAtFixedRate()
-        // Fixed rate will stop other threads from doing their job by jumping first in line again
+        // Loops
 
-        // r/all always has a thread running
-        new Timer("r/all").schedule(new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    allCommentLoop();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }, 0, TimeUnit.SECONDS.toMillis(1));
-
-        InboxReference inbox = reddit.me().inbox();
-        // Inbox always has a thread running
-        new Timer("Inbox").schedule(new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    inboxLoop(inbox);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }, 0, TimeUnit.SECONDS.toMillis(10));
-
-        // Connect to DB
-        MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
-        // Users take turns to share this thread
-        new Timer("Users").schedule(new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
-                    for (LNUser user : manuallySearchingUsers) {
-                        userCommentLoop(user.getUsername());
+        if (debugMode) {
+            // region Debug mode
+            logger.setLevel(Level.DEBUG);
+            logger.debug("DEBUG MODE");
+            new Timer("r/AnonymousBotTesting").schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        anonymousCommentLoop();
+                    } catch (Exception e) {
+                        logger.error("Error in anonymousCommentLoop()", e);
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
                 }
-            }
-        }, 0, TimeUnit.MINUTES.toMillis(1));
-        // There's always at least one minute of break for MongoDB.
-        // This task won't overlap, even if it lasts more than 1 minute.
+            }, 0, TimeUnit.SECONDS.toMillis(1));
+            // endregion
+        } else {
+            // r/all always has a thread running
+            new Timer("r/all").schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        allCommentLoop();
+                    } catch (Exception e) {
+                        logger.error("Error in allCommentLoop()", e);
+                    }
+                }
+            }, 0, TimeUnit.SECONDS.toMillis(1));
+
+            InboxReference inbox = reddit.me().inbox();
+            // Inbox always has a thread running
+            new Timer("Inbox").schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        inboxLoop(inbox);
+                    } catch (Exception e) {
+                        logger.error("Error in inboxLoop()", e);
+                    }
+                }
+            }, 0, TimeUnit.SECONDS.toMillis(10));
+
+            // Connect to DB
+            MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
+            // Users take turns to share this thread
+            new Timer("Users").schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
+                        for (LNUser user : manuallySearchingUsers) {
+                            userCommentLoop(user.getUsername());
+                        }
+                    } catch (Exception e) {
+                        logger.error("Error in userCommentLoop()", e);
+                    }
+                }
+            }, 0, TimeUnit.MINUTES.toMillis(1));
+            // There's always at least one minute of break for MongoDB.
+        }
     }
 
-    // Methods
+    // region Methods
+
+    private static void countCommentsUpTree(Comment comment) {
+        String parentFullName = comment.getParentFullName();
+        // Check all the parent comments
+        // While the parent ID is still a comment
+        while (parentFullName.startsWith("t1")) {
+            // Count it
+            Comment parentComment = (Comment) reddit.lookup(parentFullName).getChildren().get(0);
+            countComment(parentComment, 2);
+            parentFullName = parentComment.getParentFullName();
+        }
+    }
+
+    private static boolean mentionsSelf(String body) {
+        return (body.toLowerCase().contains(("u/" + USERNAME).toLowerCase()));
+    }
+
+    // endregion
+
+    // region Loops
+
+    public static void allCommentLoop() {
+        // Paginator for r/all comments
+        BarebonesPaginator<Comment> allComments = reddit.subreddit("all").comments()
+                .limit(Paginator.RECOMMENDED_MAX_LIMIT)
+                .build();
+        Listing<Comment> commentListing = allComments.next();
+        for (Comment comment : commentListing) {
+            countComment(comment, 3);
+        }
+    }
+
+    // Debug mode
+    public static void anonymousCommentLoop() {
+        // Paginator for r/AnonymousBotTesting comments
+        BarebonesPaginator<Comment> allComments = reddit.subreddit("AnonymousBotTesting").comments()
+                .limit(Paginator.RECOMMENDED_MAX_LIMIT)
+                .build();
+        Listing<Comment> commentListing = allComments.next();
+        for (Comment comment : commentListing) {
+            countComment(comment, 3);
+        }
+    }
 
     private static void inboxLoop(InboxReference inbox) {
         BarebonesPaginator<Message> inboxIterate = inbox.iterate("unread")
@@ -113,7 +177,7 @@ public class Main {
                         // We can cast to Comment because we already checked for isComment() above
                         Comment comment = (Comment) lookupResultList.get(0);
                         // Count this comment
-                        countComment(comment);
+                        countComment(comment, 2);
                         // If the comment mentions us
                         if (mentionsSelf(body)) {
                             // Count all comments above
@@ -121,24 +185,24 @@ public class Main {
                         }
                     }
                 }
-                if (body.contains("!add")) {
+                if (body.contains("/stalkme")) {
                     UpdateResult result = MongoUtils.addUserToManualSearch(message.getAuthor());
                     if (result.wasAcknowledged()) {
                         if (result.getModifiedCount() > 0) {
-                            reply(message, "All your new messages will now be scanned for Lucky Numbers!", inbox);
+                            reply(message, "All your new messages will now be scanned for Lucky Numbers!\n\nUse `/unstalkme` to undo.", inbox);
                         } else {
-                            reply(message, "Your new messages are already being scanned for Lucky Numbers!", inbox);
+                            reply(message, "Your new messages are already being scanned for Lucky Numbers!\n\nUse `/unstalkme` to opt out.", inbox);
                         }
                     } else {
                         reply(message, "Something went wrong. Please try again!", inbox);
                     }
-                } else if (body.contains("!remove")) {
+                } else if (body.contains("/unstalkme")) {
                     UpdateResult result = MongoUtils.removeUserFromManualSearch(message.getAuthor());
                     if (result.wasAcknowledged()) {
                         if (result.getModifiedCount() > 0) {
-                            reply(message, "Your new messages will no longer be scanned for Lucky Numbers.", inbox);
+                            reply(message, "Your new messages will no longer be scanned for Lucky Numbers.\n\nUse `/stalkme` to opt back in.", inbox);
                         } else {
-                            reply(message, "Your new messages are not being scanned for Lucky Numbers. Use `!add` to opt in.", inbox);
+                            reply(message, "Your new messages are not being scanned for Lucky Numbers.\n\nUse `/stalkme` to opt in.", inbox);
                         }
                     } else {
                         reply(message, "Something went wrong. Please try again!", inbox);
@@ -149,33 +213,6 @@ public class Main {
         }
     }
 
-    private static void countCommentsUpTree(Comment comment) {
-        String parentFullName = comment.getParentFullName();
-        // Check all the parent comments
-        // While the parent ID is still a comment
-        while (parentFullName.startsWith("t1")) {
-            // Count it
-            Comment parentComment = (Comment) reddit.lookup(parentFullName).getChildren().get(0);
-            countComment(parentComment);
-            parentFullName = parentComment.getParentFullName();
-        }
-    }
-
-    private static boolean mentionsSelf(String body) {
-        return (body.toLowerCase().contains(("u/" + reddit.me().getUsername()).toLowerCase()));
-    }
-
-    public static void allCommentLoop() {
-        // Paginator for r/all comments
-        BarebonesPaginator<Comment> allComments = reddit.subreddit("all").comments()
-                .limit(Paginator.RECOMMENDED_MAX_LIMIT)
-                .build();
-        Listing<Comment> commentListing = allComments.next();
-        for (Comment comment : commentListing) {
-            countComment(comment);
-        }
-    }
-
     public static void userCommentLoop(String username) {
         DefaultPaginator<PublicContribution<?>> userComments = reddit.user(username).history("comments")
                 .sorting(UserHistorySort.NEW)
@@ -183,12 +220,16 @@ public class Main {
                 .build();
         Listing<PublicContribution<?>> commentListing = userComments.next();
         for (PublicContribution<?> contribution : commentListing) {
-            Comment comment = (Comment) contribution;
-            countComment(comment);
+            Comment comment = (Comment) contribution; // Can cast because of history("comments")
+            countComment(comment, 2);
         }
     }
 
-    private static void countComment(Comment comment) {
+    // endregion
+
+    // region Utils
+
+    private static void countComment(Comment comment, int minimumTerms) {
         String content = comment.getBody();
         // Ignore comments with brackets for links
         if (content.contains("[") | content.contains("["))
@@ -215,47 +256,45 @@ public class Main {
         if (comment.isSaved())
             return;
 
-        // If more than 2 numbers in their comment
-        if (matches > 2) {
+        // If more than n numbers in their comment
+        if (matches >= minimumTerms) {
             if (total == 69 | total == 420) {
                 CommentReference commentReference = reddit.comment(comment.getId());
 
-                StringBuilder stringBuilder = new StringBuilder();
+                StringBuilder termBuilder = new StringBuilder();
                 NumberFormat nf = new DecimalFormat("##.###");
                 for (int i = 0; i < numbers.size(); i++) {
                     float number = numbers.get(i);
-                    stringBuilder
+                    termBuilder
                             // Code block
                             .append("    ");
                     if (i != 0) {
                         // Addition symbol
-                        stringBuilder.append("+ ");
+                        termBuilder.append("+ ");
                     } else {
-                        stringBuilder.append("  ");
+                        termBuilder.append("  ");
                     }
                     // Number prettified
-                    stringBuilder.append(nf.format(number))
+                    termBuilder.append(nf.format(number))
                             // New line
                             .append("\n");
                 }
+
+                Map<String, String> replacements = Map.ofEntries(
+                        Map.entry("total", nf.format(total)),
+                        Map.entry("terms", termBuilder.toString()),
+                        Map.entry("selfUsername", USERNAME),
+                        Map.entry("subject", LuckyConfig.STALK_ME_SUBJECT),
+                        Map.entry("message", LuckyConfig.STALK_ME_MESSAGE)
+                );
+                String commentBody = StringSubstitutor.replace(LuckyConfig.CONGRATS_TEMPLATE, replacements, "{", "}");
+
                 try {
-                    commentReference.reply(
-                            "All the numbers in your comment added up to " + nf.format(total) + ". Congrats!\n\n" +
-                                    stringBuilder +
-                                    "    = " + nf.format(total)).getUrl();
+                    commentReference.reply(commentBody);
                 } catch (ApiException e) {
-                    e.printStackTrace();
-                    commentReference.save();
-                    return;
+                    logger.error("Post comment error", e);
                 }
                 commentReference.save();
-
-                // ~~To not get shadow-banned, let's sleep a bit~~
-//                try {
-//                    TimeUnit.MINUTES.sleep(10);
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
             }
         }
     }
@@ -268,4 +307,6 @@ public class Main {
             inbox.replyTo(message.getFullName(), replyBody);
         }
     }
+
+    // endregion
 }

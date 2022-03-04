@@ -105,8 +105,8 @@ public class Main {
                         List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
                         for (LNUser user : manuallySearchingUsers) {
                             userCommentLoop(user.getUsername());
-                            // Sleep for one minute between every user
-                            TimeUnit.MINUTES.sleep(1);
+                            // Sleep for 5 seconds between every user
+                            TimeUnit.SECONDS.sleep(5);
                         }
                     } catch (Exception e) {
                         logger.error("Error in userCommentLoop()", e);

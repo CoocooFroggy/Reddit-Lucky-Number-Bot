@@ -35,7 +35,7 @@ public class Main {
     
     final static Logger logger = ((Logger) LoggerFactory.getLogger(Main.class));
 
-    private static final boolean debugMode = false;
+    private static final boolean debugMode = true;
 
     public static void main(String[] args) {
         final String PASSWORD = System.getenv("LUCKYNUM_PASSWORD");
@@ -58,16 +58,29 @@ public class Main {
             // region Debug mode
             logger.setLevel(Level.DEBUG);
             logger.debug("DEBUG MODE");
-            new Timer("r/AnonymousBotTesting").schedule(new TimerTask() {
+
+//            new Timer("r/AnonymousBotTesting").schedule(new TimerTask() {
+//                @Override
+//                public void run() {
+//                    try {
+//                        anonymousCommentLoop();
+//                    } catch (Exception e) {
+//                        logger.error("Error in anonymousCommentLoop()", e);
+//                    }
+//                }
+//            }, 0, TimeUnit.SECONDS.toMillis(1));
+
+            InboxReference inbox = reddit.me().inbox();
+            new Timer("Inbox").schedule(new TimerTask() {
                 @Override
                 public void run() {
                     try {
-                        anonymousCommentLoop();
+                        inboxLoop(inbox);
                     } catch (Exception e) {
-                        logger.error("Error in anonymousCommentLoop()", e);
+                        logger.error("Error in inboxLoop()", e);
                     }
                 }
-            }, 0, TimeUnit.SECONDS.toMillis(1));
+            }, 0, TimeUnit.SECONDS.toMillis(10));
             // endregion
         } else {
             // r/all always has a thread running
@@ -82,8 +95,8 @@ public class Main {
                 }
             }, 0, TimeUnit.SECONDS.toMillis(1));
 
-            InboxReference inbox = reddit.me().inbox();
             // Inbox always has a thread running
+            InboxReference inbox = reddit.me().inbox();
             new Timer("Inbox").schedule(new TimerTask() {
                 @Override
                 public void run() {
@@ -119,13 +132,13 @@ public class Main {
 
     // region Methods
 
-    private static void countCommentsUpTree(Comment comment) {
+    private static void countCommentsUpTree(Comment comment) throws InterruptedException {
         String parentFullName = comment.getParentFullName();
         // Check all the parent comments
         // While the parent ID is still a comment
         while (parentFullName.startsWith("t1")) {
             // Count it
-            Comment parentComment = (Comment) reddit.lookup(parentFullName).getChildren().get(0);
+            Comment parentComment = (Comment) superLookup(parentFullName).getChildren().get(0);
             countComment(parentComment, 2);
             parentFullName = parentComment.getParentFullName();
         }
@@ -162,7 +175,7 @@ public class Main {
         }
     }
 
-    private static void inboxLoop(InboxReference inbox) {
+    private static void inboxLoop(InboxReference inbox) throws InterruptedException {
         BarebonesPaginator<Message> inboxIterate = inbox.iterate("unread")
                 .limit(Paginator.RECOMMENDED_MAX_LIMIT)
                 .build();
@@ -172,8 +185,8 @@ public class Main {
             for (Message message : messages) {
                 final String body = message.getBody();
                 if (message.isComment()) {
-                    List<Object> lookupResultList = reddit.lookup(message.getFullName()).getChildren();
-                    // Sometimes the comment is deleted or something, ignore when that happens
+                    List<Object> lookupResultList = superLookup(message.getFullName()).getChildren();
+                    // Sometimes the comment is deleted or something, ignore it
                     if (!lookupResultList.isEmpty()) {
                         // We can cast to Comment because we already checked for isComment() above
                         Comment comment = (Comment) lookupResultList.get(0);
@@ -240,11 +253,11 @@ public class Main {
         Matcher numberMatcher = numberPattern.matcher(content);
 
         int matches = 0;
-        ArrayList<Float> numbers = new ArrayList<>();
+        ArrayList<Double> numbers = new ArrayList<>();
         double total = 0;
 
         while (numberMatcher.find()) {
-            float number = Float.parseFloat(numberMatcher.group(0));
+            double number = Double.parseDouble(numberMatcher.group(0));
             // Don't count 0 as a number
             if (number == 0)
                 continue;
@@ -265,7 +278,7 @@ public class Main {
                 StringBuilder termBuilder = new StringBuilder();
                 NumberFormat nf = new DecimalFormat("##.###");
                 for (int i = 0; i < numbers.size(); i++) {
-                    float number = numbers.get(i);
+                    double number = numbers.get(i);
                     termBuilder
                             // Code block
                             .append("    ");
@@ -307,6 +320,25 @@ public class Main {
         } else {
             inbox.replyTo(message.getFullName(), replyBody);
         }
+    }
+
+    /**
+     * Same as RedditClient.lookup() but retries up to 10 times.
+     * @param fullName fullname of the Reddit object
+     * @return Returns the lookup listing
+     */
+    public static Listing<Object> superLookup(String fullName) throws InterruptedException {
+        Listing<Object> lookupResult = reddit.lookup(fullName);
+        int retryCounter = 0;
+        while (true) {
+            // Yes, sometimes it really takes 10 tries. Reddit is weird
+            if (lookupResult.getChildren().isEmpty() && retryCounter < 10) {
+                TimeUnit.SECONDS.sleep(1);
+                lookupResult = reddit.lookup(fullName);
+                retryCounter++;
+            } else break;
+        }
+        return lookupResult;
     }
 
     // endregion

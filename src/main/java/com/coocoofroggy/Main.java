@@ -35,7 +35,7 @@ public class Main {
     
     final static Logger logger = ((Logger) LoggerFactory.getLogger(Main.class));
 
-    private static final boolean debugMode = true;
+    private static final boolean debugMode = false;
 
     public static void main(String[] args) {
         final String PASSWORD = System.getenv("LUCKYNUM_PASSWORD");
@@ -118,8 +118,8 @@ public class Main {
                         List<LNUser> manuallySearchingUsers = MongoUtils.fetchManuallySearchingUsers();
                         for (LNUser user : manuallySearchingUsers) {
                             userCommentLoop(user.getUsername());
-                            // Sleep for 5 seconds between every user
-                            TimeUnit.SECONDS.sleep(5);
+                            // Sleep for 1 second between every user
+                            TimeUnit.SECONDS.sleep(1);
                         }
                     } catch (Exception e) {
                         logger.error("Error in userCommentLoop()", e);

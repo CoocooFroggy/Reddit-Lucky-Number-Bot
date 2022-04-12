@@ -249,7 +249,13 @@ public class Main {
         if (content.contains("[") | content.contains("["))
             return;
 
-        Pattern numberPattern = Pattern.compile("\\d*\\.?\\d+");
+        // Group 0 / entire match = throwaway since we can't have fixed-width lookbehind
+        // Group 1 = True match
+        // Where I found the trick:
+        // https://stackoverflow.com/a/24093501/13668740
+        // How this works:
+        // https://stackoverflow.com/a/23589204/13668740
+        Pattern numberPattern = Pattern.compile("\\[[^\\]]*\\]|(\\d+.?\\d+)");
         Matcher numberMatcher = numberPattern.matcher(content);
 
         int matches = 0;
@@ -257,7 +263,7 @@ public class Main {
         double total = 0;
 
         while (numberMatcher.find()) {
-            double number = Double.parseDouble(numberMatcher.group(0));
+            double number = Double.parseDouble(numberMatcher.group(1));
             // Don't count 0 as a number
             if (number == 0)
                 continue;

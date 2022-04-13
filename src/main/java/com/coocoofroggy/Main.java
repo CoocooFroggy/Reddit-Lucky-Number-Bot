@@ -35,7 +35,7 @@ public class Main {
     
     final static Logger logger = ((Logger) LoggerFactory.getLogger(Main.class));
 
-    private static final boolean debugMode = false;
+    private static final boolean debugMode = true;
 
     public static void main(String[] args) {
         final String PASSWORD = System.getenv("LUCKYNUM_PASSWORD");
@@ -245,9 +245,6 @@ public class Main {
 
     private static void countComment(Comment comment, int minimumTerms) {
         String content = comment.getBody();
-        // Ignore comments with brackets for links
-        if (content.contains("[") | content.contains("["))
-            return;
 
         // Group 0 / entire match = throwaway since we can't have fixed-width lookbehind
         // Group 1 = True match
@@ -255,7 +252,7 @@ public class Main {
         // https://stackoverflow.com/a/24093501/13668740
         // How this works:
         // https://stackoverflow.com/a/23589204/13668740
-        Pattern numberPattern = Pattern.compile("\\([^\\)]*\\)|(\\d+(\\.\\d+)?)");
+        Pattern numberPattern = Pattern.compile("\\]\\([^\\)]*\\)|(\\d+(\\.\\d+)?)");
         Matcher numberMatcher = numberPattern.matcher(content);
 
         int matches = 0;
@@ -263,6 +260,8 @@ public class Main {
         double total = 0;
 
         while (numberMatcher.find()) {
+            // Skip if the match is a throwaway match
+            if (numberMatcher.group(1) == null) continue;
             double number = Double.parseDouble(numberMatcher.group(1));
             // Don't count 0 as a number
             if (number == 0)

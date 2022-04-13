@@ -255,7 +255,7 @@ public class Main {
         // https://stackoverflow.com/a/24093501/13668740
         // How this works:
         // https://stackoverflow.com/a/23589204/13668740
-        Pattern numberPattern = Pattern.compile("\\[[^\\]]*\\]|(\\d+\\.?\\d+)");
+        Pattern numberPattern = Pattern.compile("\\([^\\)]*\\)|(\\d+(\\.\\d+)?)");
         Matcher numberMatcher = numberPattern.matcher(content);
 
         int matches = 0;

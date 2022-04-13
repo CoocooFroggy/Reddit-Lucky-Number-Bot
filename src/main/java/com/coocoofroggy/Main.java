@@ -35,7 +35,7 @@ public class Main {
     
     final static Logger logger = ((Logger) LoggerFactory.getLogger(Main.class));
 
-    private static final boolean debugMode = true;
+    private static final boolean debugMode = false;
 
     public static void main(String[] args) {
         final String PASSWORD = System.getenv("LUCKYNUM_PASSWORD");

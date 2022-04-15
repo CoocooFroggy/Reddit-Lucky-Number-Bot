@@ -187,17 +187,30 @@ public class Main {
                 CommentReference commentReference = reddit.comment(comment.getId());
 
                 StringBuilder termBuilder = new StringBuilder();
-                NumberFormat nf = new DecimalFormat("##.###");
+                NumberFormat nf = new DecimalFormat("#.###");
                 for (int i = 0; i < numbers.size(); i++) {
                     double number = numbers.get(i);
-                    termBuilder
-                            // Code block
-                            .append("    ");
-                    if (i != 0) {
-                        // Addition symbol
-                        termBuilder.append("+ ");
+                    // Code block
+                    termBuilder.append("    ");
+                    // On the first run, we don't want an operator sign
+                    if (i == 0) {
+                        // Number will never = 0 since we ignore zeros
+                        if (number > 0) {
+                            termBuilder.append("  ");
+                        } else {
+                            // Leave room for the negative sign
+                            termBuilder.append(" ");
+                        }
                     } else {
-                        termBuilder.append("  ");
+                        // Number will never = 0 since we ignore zeros
+                        if (number > 0) {
+                            // Addition symbol
+                            termBuilder.append("+ ");
+                        } else {
+                            termBuilder.append("- ");
+                            // We don't want the negative sign appearing again
+                            number = Math.abs(number);
+                        }
                     }
                     // Number prettified
                     termBuilder.append(nf.format(number))

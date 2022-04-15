@@ -30,7 +30,9 @@ import java.util.regex.Pattern;
 
 public class Main {
     public static final String USERNAME = System.getenv("LUCKYNUM_USERNAME");
-    
+    public static final Pattern PATTERN_2 = Pattern.compile("\\(.*\\)|(-?\\d+(?:\\.\\d+)?)");
+    public static final Pattern PATTERN_1 = Pattern.compile("\\[[^\\]^\\[]*\\]\\([^\\)^\\(]*\\)|(-?\\d+(?:\\.\\d+)?)");
+
     static RedditClient reddit;
     
     final static Logger logger = ((Logger) LoggerFactory.getLogger(Main.class));
@@ -59,28 +61,28 @@ public class Main {
             logger.setLevel(Level.DEBUG);
             logger.debug("DEBUG MODE");
 
-//            new Timer("r/AnonymousBotTesting").schedule(new TimerTask() {
-//                @Override
-//                public void run() {
-//                    try {
-//                        anonymousCommentLoop();
-//                    } catch (Exception e) {
-//                        logger.error("Error in anonymousCommentLoop()", e);
-//                    }
-//                }
-//            }, 0, TimeUnit.SECONDS.toMillis(1));
-
-            InboxReference inbox = reddit.me().inbox();
-            new Timer("Inbox").schedule(new TimerTask() {
+            new Timer("r/AnonymousBotTesting").schedule(new TimerTask() {
                 @Override
                 public void run() {
                     try {
-                        inboxLoop(inbox);
+                        anonymousCommentLoop();
                     } catch (Exception e) {
-                        logger.error("Error in inboxLoop()", e);
+                        logger.error("Error in anonymousCommentLoop()", e);
                     }
                 }
-            }, 0, TimeUnit.SECONDS.toMillis(10));
+            }, 0, TimeUnit.SECONDS.toMillis(1));
+
+//            InboxReference inbox = reddit.me().inbox();
+//            new Timer("Inbox").schedule(new TimerTask() {
+//                @Override
+//                public void run() {
+//                    try {
+//                        inboxLoop(inbox);
+//                    } catch (Exception e) {
+//                        logger.error("Error in inboxLoop()", e);
+//                    }
+//                }
+//            }, 0, TimeUnit.SECONDS.toMillis(10));
             // endregion
         } else {
             // r/all always has a thread running
@@ -246,23 +248,36 @@ public class Main {
     private static void countComment(Comment comment, int minimumTerms) {
         String content = comment.getBody();
 
-        // Group 0 / entire match = throwaway since we can't have fixed-width lookbehind
-        // Group 1 = True match
-        // Where I found the trick:
-        // https://stackoverflow.com/a/24093501/13668740
-        // How this works:
-        // https://stackoverflow.com/a/23589204/13668740
-        Pattern numberPattern = Pattern.compile("\\]\\([^\\)]*\\)|(\\d+(\\.\\d+)?)");
-        Matcher numberMatcher = numberPattern.matcher(content);
+        Matcher matcher1 = PATTERN_1.matcher(content);
 
         int matches = 0;
         ArrayList<Double> numbers = new ArrayList<>();
         double total = 0;
 
-        while (numberMatcher.find()) {
-            // Skip if the match is a throwaway match
-            if (numberMatcher.group(1) == null) continue;
-            double number = Double.parseDouble(numberMatcher.group(1));
+        while (matcher1.find()) {
+            // It's a [brackets](match)
+            if (matcher1.group(1) == null) {
+                // Group 0 / entire match = throwaway since we can't have fixed-width lookbehind
+                // This would be parts of links in parentheses
+                // Group 1 = True match
+                // How this works:
+                // https://stackoverflow.com/a/23589204/13668740
+                Matcher matcher2 = PATTERN_2.matcher(matcher1.group(0));
+                while (matcher2.find()) {
+                    // Skip past throwaway matches
+                    if (matcher2.group(1) == null) continue;
+                    double number = Double.parseDouble(matcher2.group(1));
+                    // Don't count 0 as a number
+                    if (number == 0)
+                        continue;
+                    total += number;
+                    numbers.add(number);
+                    matches++;
+                }
+                continue;
+            }
+            // Regular number
+            double number = Double.parseDouble(matcher1.group(1));
             // Don't count 0 as a number
             if (number == 0)
                 continue;

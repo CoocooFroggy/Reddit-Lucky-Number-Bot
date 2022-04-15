@@ -134,7 +134,7 @@ public class Main {
     // This is added before every bracket "[, ], (, )" to prevent markdown escapes with "\"
     // (?<=[^\\])
     @SuppressWarnings("RegExpRedundantEscape")
-    static final Pattern PATTERN_1 = Pattern.compile("(?<=[^\\\\])\\[[^\\]^\\[]*(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|(?<=[^\\d])(-?\\d+(?:\\.\\d+)?)");
+    static final Pattern PATTERN_1 = Pattern.compile("(?<=[^\\\\])\\[[^\\]^\\[]*(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|(?<=[^\\d]|^)(-?\\d+(?:\\.\\d+)?)");
     static final Pattern PATTERN_2 = Pattern.compile("\\(.*\\)|(?<=[^\\d])(-?\\d+(?:\\.\\d+)?)");
     private static void countComment(Comment comment, int minimumTerms) {
         String content = comment.getBody();

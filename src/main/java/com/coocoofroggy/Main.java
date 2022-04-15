@@ -240,7 +240,11 @@ public class Main {
 
     // region Utils
 
-    static final Pattern PATTERN_1 = Pattern.compile("\\[[^\\]^\\[]*\\]\\([^\\)^\\(]*\\)|(-?\\d+(?:\\.\\d+)?)");
+    // This is the readable regex:
+    // \[[^\]^\[]*\]\([^\)^\(]*\)|(-?\d+(?:\.\d+)?)
+    // This is added before every bracket "[, ], (, )" to prevent markdown escapes with "\"
+    // (?<=[^\\])
+    static final Pattern PATTERN_1 = Pattern.compile("(?<=[^\\\\])\\[[^\\]^\\[]*(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|(-?\\d+(?:\\.\\d+)?)");
     static final Pattern PATTERN_2 = Pattern.compile("\\(.*\\)|(-?\\d+(?:\\.\\d+)?)");
     private static void countComment(Comment comment, int minimumTerms) {
         String content = comment.getBody();

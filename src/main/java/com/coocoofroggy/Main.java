@@ -29,14 +29,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Main {
-    public static final String USERNAME = System.getenv("LUCKYNUM_USERNAME");
-    public static final Pattern PATTERN_2 = Pattern.compile("\\(.*\\)|(-?\\d+(?:\\.\\d+)?)");
-    public static final Pattern PATTERN_1 = Pattern.compile("\\[[^\\]^\\[]*\\]\\([^\\)^\\(]*\\)|(-?\\d+(?:\\.\\d+)?)");
-
+    static final String USERNAME = System.getenv("LUCKYNUM_USERNAME");
     static RedditClient reddit;
-    
-    final static Logger logger = ((Logger) LoggerFactory.getLogger(Main.class));
-
+    static final Logger logger = ((Logger) LoggerFactory.getLogger(Main.class));
     private static final boolean debugMode = false;
 
     public static void main(String[] args) {
@@ -245,6 +240,8 @@ public class Main {
 
     // region Utils
 
+    static final Pattern PATTERN_1 = Pattern.compile("\\[[^\\]^\\[]*\\]\\([^\\)^\\(]*\\)|(-?\\d+(?:\\.\\d+)?)");
+    static final Pattern PATTERN_2 = Pattern.compile("\\(.*\\)|(-?\\d+(?:\\.\\d+)?)");
     private static void countComment(Comment comment, int minimumTerms) {
         String content = comment.getBody();
 

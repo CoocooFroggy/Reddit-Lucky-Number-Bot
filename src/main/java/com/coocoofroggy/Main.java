@@ -129,6 +129,101 @@ public class Main {
 
     // region Methods
 
+    // This is the readable regex:
+    // \[[^\]^\[]*\]\([^\)^\(]*\)|(-?\d+(?:\.\d+)?)
+    // This is added before every bracket "[, ], (, )" to prevent markdown escapes with "\"
+    // (?<=[^\\])
+    @SuppressWarnings("RegExpRedundantEscape")
+    static final Pattern PATTERN_1 = Pattern.compile("(?<=[^\\\\])\\[[^\\]^\\[]*(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|(-?\\d+(?:\\.\\d+)?)");
+    static final Pattern PATTERN_2 = Pattern.compile("\\(.*\\)|(-?\\d+(?:\\.\\d+)?)");
+    private static void countComment(Comment comment, int minimumTerms) {
+        String content = comment.getBody();
+
+        Matcher matcher1 = PATTERN_1.matcher(content);
+
+        int matches = 0;
+        ArrayList<Double> numbers = new ArrayList<>();
+        double total = 0;
+
+        while (matcher1.find()) {
+            // It's a [brackets](match)
+            if (matcher1.group(1) == null) {
+                // Group 0 / entire match = throwaway since we can't have fixed-width lookbehind
+                // This would be parts of links in parentheses
+                // Group 1 = True match
+                // How this works:
+                // https://stackoverflow.com/a/23589204/13668740
+                Matcher matcher2 = PATTERN_2.matcher(matcher1.group(0));
+                while (matcher2.find()) {
+                    // Skip past throwaway matches
+                    if (matcher2.group(1) == null) continue;
+                    double number = Double.parseDouble(matcher2.group(1));
+                    // Don't count 0 as a number
+                    if (number == 0)
+                        continue;
+                    total += number;
+                    numbers.add(number);
+                    matches++;
+                }
+                continue;
+            }
+            // Regular number
+            double number = Double.parseDouble(matcher1.group(1));
+            // Don't count 0 as a number
+            if (number == 0)
+                continue;
+            total += number;
+            numbers.add(number);
+            matches++;
+        }
+
+        // Skip saved comments
+        if (comment.isSaved())
+            return;
+
+        // If more than n numbers in their comment
+        if (matches >= minimumTerms) {
+            if (total == 69 | total == 420) {
+                CommentReference commentReference = reddit.comment(comment.getId());
+
+                StringBuilder termBuilder = new StringBuilder();
+                NumberFormat nf = new DecimalFormat("##.###");
+                for (int i = 0; i < numbers.size(); i++) {
+                    double number = numbers.get(i);
+                    termBuilder
+                            // Code block
+                            .append("    ");
+                    if (i != 0) {
+                        // Addition symbol
+                        termBuilder.append("+ ");
+                    } else {
+                        termBuilder.append("  ");
+                    }
+                    // Number prettified
+                    termBuilder.append(nf.format(number))
+                            // New line
+                            .append("\n");
+                }
+
+                Map<String, String> replacements = Map.ofEntries(
+                        Map.entry("total", nf.format(total)),
+                        Map.entry("terms", termBuilder.toString()),
+                        Map.entry("selfUsername", USERNAME),
+                        Map.entry("subject", LuckyConfig.STALK_ME_SUBJECT),
+                        Map.entry("message", LuckyConfig.STALK_ME_MESSAGE)
+                );
+                String commentBody = StringSubstitutor.replace(LuckyConfig.CONGRATS_TEMPLATE, replacements, "{", "}");
+
+                try {
+                    commentReference.reply(commentBody);
+                } catch (ApiException e) {
+                    logger.error("Post comment error", e);
+                }
+                commentReference.save();
+            }
+        }
+    }
+
     private static void countCommentsUpTree(Comment comment) throws InterruptedException {
         String parentFullName = comment.getParentFullName();
         // Check all the parent comments
@@ -239,100 +334,6 @@ public class Main {
     // endregion
 
     // region Utils
-
-    // This is the readable regex:
-    // \[[^\]^\[]*\]\([^\)^\(]*\)|(-?\d+(?:\.\d+)?)
-    // This is added before every bracket "[, ], (, )" to prevent markdown escapes with "\"
-    // (?<=[^\\])
-    static final Pattern PATTERN_1 = Pattern.compile("(?<=[^\\\\])\\[[^\\]^\\[]*(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|(-?\\d+(?:\\.\\d+)?)");
-    static final Pattern PATTERN_2 = Pattern.compile("\\(.*\\)|(-?\\d+(?:\\.\\d+)?)");
-    private static void countComment(Comment comment, int minimumTerms) {
-        String content = comment.getBody();
-
-        Matcher matcher1 = PATTERN_1.matcher(content);
-
-        int matches = 0;
-        ArrayList<Double> numbers = new ArrayList<>();
-        double total = 0;
-
-        while (matcher1.find()) {
-            // It's a [brackets](match)
-            if (matcher1.group(1) == null) {
-                // Group 0 / entire match = throwaway since we can't have fixed-width lookbehind
-                // This would be parts of links in parentheses
-                // Group 1 = True match
-                // How this works:
-                // https://stackoverflow.com/a/23589204/13668740
-                Matcher matcher2 = PATTERN_2.matcher(matcher1.group(0));
-                while (matcher2.find()) {
-                    // Skip past throwaway matches
-                    if (matcher2.group(1) == null) continue;
-                    double number = Double.parseDouble(matcher2.group(1));
-                    // Don't count 0 as a number
-                    if (number == 0)
-                        continue;
-                    total += number;
-                    numbers.add(number);
-                    matches++;
-                }
-                continue;
-            }
-            // Regular number
-            double number = Double.parseDouble(matcher1.group(1));
-            // Don't count 0 as a number
-            if (number == 0)
-                continue;
-            total += number;
-            numbers.add(number);
-            matches++;
-        }
-
-        // Skip saved comments
-        if (comment.isSaved())
-            return;
-
-        // If more than n numbers in their comment
-        if (matches >= minimumTerms) {
-            if (total == 69 | total == 420) {
-                CommentReference commentReference = reddit.comment(comment.getId());
-
-                StringBuilder termBuilder = new StringBuilder();
-                NumberFormat nf = new DecimalFormat("##.###");
-                for (int i = 0; i < numbers.size(); i++) {
-                    double number = numbers.get(i);
-                    termBuilder
-                            // Code block
-                            .append("    ");
-                    if (i != 0) {
-                        // Addition symbol
-                        termBuilder.append("+ ");
-                    } else {
-                        termBuilder.append("  ");
-                    }
-                    // Number prettified
-                    termBuilder.append(nf.format(number))
-                            // New line
-                            .append("\n");
-                }
-
-                Map<String, String> replacements = Map.ofEntries(
-                        Map.entry("total", nf.format(total)),
-                        Map.entry("terms", termBuilder.toString()),
-                        Map.entry("selfUsername", USERNAME),
-                        Map.entry("subject", LuckyConfig.STALK_ME_SUBJECT),
-                        Map.entry("message", LuckyConfig.STALK_ME_MESSAGE)
-                );
-                String commentBody = StringSubstitutor.replace(LuckyConfig.CONGRATS_TEMPLATE, replacements, "{", "}");
-
-                try {
-                    commentReference.reply(commentBody);
-                } catch (ApiException e) {
-                    logger.error("Post comment error", e);
-                }
-                commentReference.save();
-            }
-        }
-    }
 
     private static void reply(Message message, String replyBody, InboxReference inbox) {
         if (message.isComment()) {

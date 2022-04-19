@@ -135,8 +135,8 @@ public class Main {
     static final Pattern PATTERN_1 = Pattern.compile(
             "#x[\\dA-F]{4};|" +
                     "(?<=[^\\\\])\\[([^\\]^\\[]*)(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|" +
-                    "(-?\\d+(?:\\.\\d+)?)");
-    static final Pattern PATTERN_2 = Pattern.compile("-?\\d+(?:\\.\\d+)?");
+                    "(?<=\\D|^)(-?\\d+(?:\\.\\d+)?)");
+    static final Pattern PATTERN_2 = Pattern.compile("(?<=\\D|^)-?\\d+(?:\\.\\d+)?");
 
     private static void countComment(Comment comment, int minimumTerms) {
         String content = comment.getBody();

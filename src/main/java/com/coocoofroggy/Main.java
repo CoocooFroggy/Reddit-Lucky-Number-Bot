@@ -134,7 +134,7 @@ public class Main {
     @SuppressWarnings("RegExpRedundantEscape") // Because I like to unnecessarily escape closing brackets as well
     static final Pattern PATTERN_1 = Pattern.compile(
             "#x[\\dA-F]{4};|" +
-                    "(?<=[^\\\\])\\[([^\\]^\\[]*)(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|" +
+                    "(?<=[^\\\\]|^)\\[([^\\]^\\[]*)(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|" +
                     "(?<=\\D|^)(-?\\d+(?:\\.\\d+)?)");
     static final Pattern PATTERN_2 = Pattern.compile("(?<=\\D|^)-?\\d+(?:\\.\\d+)?");
 

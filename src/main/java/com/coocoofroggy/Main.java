@@ -139,6 +139,9 @@ public class Main {
     static final Pattern PATTERN_2 = Pattern.compile("(?<=\\D|^)-?\\d+(?:\\.\\d+)?");
 
     private static void countComment(Comment comment, int minimumTerms) {
+        // Ignore AutoModerator because those will trigger a lot
+        if (comment.getAuthor().equals("AutoModerator")) return;
+
         String content = comment.getBody();
 
         Matcher matcher1 = PATTERN_1.matcher(content);

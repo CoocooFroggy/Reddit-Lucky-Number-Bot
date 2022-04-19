@@ -38,7 +38,7 @@ public class Main {
         final String PASSWORD = System.getenv("LUCKYNUM_PASSWORD");
         final String CLIENT_SECRET = System.getenv("LUCKYNUM_CLIENTSECRET");
         final String CLIENT_ID = System.getenv("LUCKYNUM_CLIENTID");
-        
+
         // We have a 'script' reddit app
         Credentials oAuthCredentials = Credentials.script(USERNAME, PASSWORD, CLIENT_ID, CLIENT_SECRET);
         // Create a unique User-Agent for our bot
@@ -129,13 +129,15 @@ public class Main {
 
     // region Methods
 
-    // This is the readable regex:
-    // \[[^\]^\[]*\]\([^\)^\(]*\)|(-?\d+(?:\.\d+)?)
     // This is added before every bracket "[, ], (, )" to prevent markdown escapes with "\"
     // (?<=[^\\])
-    @SuppressWarnings("RegExpRedundantEscape")
-    static final Pattern PATTERN_1 = Pattern.compile("(?<=[^\\\\])\\[[^\\]^\\[]*(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|(-?\\d+(?:\\.\\d+)?)");
-    static final Pattern PATTERN_2 = Pattern.compile("\\(.*\\)|(-?\\d+(?:\\.\\d+)?)");
+    @SuppressWarnings("RegExpRedundantEscape") // Because I like to unnecessarily escape closing brackets as well
+    static final Pattern PATTERN_1 = Pattern.compile(
+            "#x[\\dA-F]{4};|" +
+                    "(?<=[^\\\\])\\[([^\\]^\\[]*)(?<=[^\\\\])\\](?<=[^\\\\])\\([^\\)^\\(]*(?<=[^\\\\])\\)|" +
+                    "(-?\\d+(?:\\.\\d+)?)");
+    static final Pattern PATTERN_2 = Pattern.compile("-?\\d+(?:\\.\\d+)?");
+
     private static void countComment(Comment comment, int minimumTerms) {
         String content = comment.getBody();
 
@@ -146,18 +148,19 @@ public class Main {
         double total = 0;
 
         while (matcher1.find()) {
+            // If it's a throwaway match
+            if (matcher1.group(1) == null && matcher1.group(2) == null) continue;
             // It's a [brackets](match)
-            if (matcher1.group(1) == null) {
+            if (matcher1.group(1) != null) {
                 // Group 0 / entire match = throwaway since we can't have fixed-width lookbehind
-                // This would be parts of links in parentheses
-                // Group 1 = True match
+                // Group 1 = Everything [in brackets]
                 // How this works:
                 // https://stackoverflow.com/a/23589204/13668740
-                Matcher matcher2 = PATTERN_2.matcher(matcher1.group(0));
+                // Run the next regex on group 1
+                Matcher matcher2 = PATTERN_2.matcher(matcher1.group(1));
                 while (matcher2.find()) {
-                    // Skip past throwaway matches
-                    if (matcher2.group(1) == null) continue;
-                    double number = Double.parseDouble(matcher2.group(1));
+                    // Every match is a number
+                    double number = Double.parseDouble(matcher2.group(0));
                     // Don't count 0 as a number
                     if (number == 0)
                         continue;
@@ -168,7 +171,7 @@ public class Main {
                 continue;
             }
             // Regular number
-            double number = Double.parseDouble(matcher1.group(1));
+            double number = Double.parseDouble(matcher1.group(2));
             // Don't count 0 as a number
             if (number == 0)
                 continue;
@@ -359,6 +362,7 @@ public class Main {
 
     /**
      * Same as RedditClient.lookup() but retries up to 10 times.
+     *
      * @param fullName fullname of the Reddit object
      * @return Returns the lookup listing
      */

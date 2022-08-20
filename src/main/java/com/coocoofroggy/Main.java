@@ -49,35 +49,37 @@ public class Main {
 //        reddit.setLogHttp(false);
 
 
-        // Loops
+        // Connect to DB
+        MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
 
+        // region Loops
         if (debugMode) {
             // region Debug mode
             logger.setLevel(Level.DEBUG);
             logger.debug("DEBUG MODE");
 
-            new Timer("r/AnonymousBotTesting").schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    try {
-                        anonymousCommentLoop();
-                    } catch (Exception e) {
-                        logger.error("Error in anonymousCommentLoop()", e);
-                    }
-                }
-            }, 0, TimeUnit.SECONDS.toMillis(1));
-
-//            InboxReference inbox = reddit.me().inbox();
-//            new Timer("Inbox").schedule(new TimerTask() {
+//            new Timer("r/AnonymousBotTesting").schedule(new TimerTask() {
 //                @Override
 //                public void run() {
 //                    try {
-//                        inboxLoop(inbox);
+//                        anonymousCommentLoop();
 //                    } catch (Exception e) {
-//                        logger.error("Error in inboxLoop()", e);
+//                        logger.error("Error in anonymousCommentLoop()", e);
 //                    }
 //                }
-//            }, 0, TimeUnit.SECONDS.toMillis(10));
+//            }, 0, TimeUnit.SECONDS.toMillis(1));
+
+            InboxReference inbox = reddit.me().inbox();
+            new Timer("Inbox").schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        inboxLoop(inbox);
+                    } catch (Exception e) {
+                        logger.error("Error in inboxLoop()", e);
+                    }
+                }
+            }, 0, TimeUnit.SECONDS.toMillis(10));
             // endregion
         } else {
             // r/all always has a thread running
@@ -105,8 +107,6 @@ public class Main {
                 }
             }, 0, TimeUnit.SECONDS.toMillis(10));
 
-            // Connect to DB
-            MongoUtils.connectToDatabase(System.getenv("MONGO_URI"));
             // Users take turns to share this thread
             new Timer("Users").schedule(new TimerTask() {
                 @Override
@@ -125,6 +125,7 @@ public class Main {
             }, 0, TimeUnit.MINUTES.toMillis(1));
             // There's always at least one minute of break for MongoDB.
         }
+        // endregion Loops
     }
 
     // region Methods
@@ -138,9 +139,9 @@ public class Main {
                     "(?<=\\D|^)(-?\\d+(?:\\.\\d+)?)");
     static final Pattern PATTERN_2 = Pattern.compile("(?<=\\D|^)-?\\d+(?:\\.\\d+)?");
 
-    private static void countComment(Comment comment, int minimumTerms) {
+    private static boolean countComment(Comment comment, int minimumTerms) {
         // Ignore AutoModerator because those will trigger a lot
-        if (comment.getAuthor().equals("AutoModerator")) return;
+        if (comment.getAuthor().equals("AutoModerator")) return false;
 
         String content = comment.getBody();
 
@@ -185,7 +186,7 @@ public class Main {
 
         // Skip saved comments
         if (comment.isSaved())
-            return;
+            return false;
 
         // If more than n numbers in their comment
         if (matches >= minimumTerms) {
@@ -239,20 +240,25 @@ public class Main {
                     logger.error("Post comment error", e);
                 }
                 commentReference.save();
+                return true;
             }
         }
+        return false;
     }
 
-    private static void countCommentsUpTree(Comment comment) throws InterruptedException {
+    private static int countCommentsUpTree(Comment comment) throws InterruptedException {
         String parentFullName = comment.getParentFullName();
+        int luckyComments = 0;
         // Check all the parent comments
         // While the parent ID is still a comment
         while (parentFullName.startsWith("t1")) {
             // Count it
             Comment parentComment = (Comment) superLookup(parentFullName).getChildren().get(0);
-            countComment(parentComment, 2);
+            if (countComment(parentComment, 2))
+                luckyComments++;
             parentFullName = parentComment.getParentFullName();
         }
+        return luckyComments;
     }
 
     private static boolean mentionsSelf(String body) {
@@ -301,12 +307,46 @@ public class Main {
                     if (!lookupResultList.isEmpty()) {
                         // We can cast to Comment because we already checked for isComment() above
                         Comment comment = (Comment) lookupResultList.get(0);
+                        int luckyComments = 0;
                         // Count this comment
-                        countComment(comment, 2);
+                        if (countComment(comment, 2))
+                            luckyComments++;
                         // If the comment mentions us
                         if (mentionsSelf(body)) {
                             // Count all comments above
-                            countCommentsUpTree(comment);
+                            luckyComments += countCommentsUpTree(comment);
+                            // Build our permalink manually
+                            String permalink = "https://reddit.com/r/" + comment.getSubreddit() +
+                                    "/comments/" + comment.getSubmissionFullName().replaceFirst("^t3_", "") +
+                                    "/comment/" + comment.getId();
+                            Subreddit subreddit = (Subreddit) superLookup(comment.getSubredditFullName()).getChildren().get(0);
+                            try {
+                                if (luckyComments == 1) {
+                                    if (subreddit.isUserBanned()) {
+                                        reply(message,
+                                                "I scanned [your comment](" + permalink + ") and its parents, and found one new comment whose numbers add up to a lucky number.\n\n" +
+                                                        "Unfortunately, I am banned in that subreddit and unable to comment.",
+                                                inbox);
+                                    } else {
+                                        reply(message,
+                                                "I scanned [your comment](" + permalink + ") and its parents, and found one new comment whose numbers add up to a lucky number.",
+                                                inbox);
+                                    }
+                                } else {
+                                    if (subreddit.isUserBanned()) {
+                                        reply(message,
+                                                "I scanned [your comment](" + permalink + ") and its parents, and found " + luckyComments + " new comments whose numbers add up to a lucky number.\n\n" +
+                                                        "Unfortunately, I am banned in that subreddit and unable to comment.",
+                                                inbox);
+                                    } else {
+                                        reply(message,
+                                                "I scanned [your comment](" + permalink + ") and its parents, and found " + luckyComments + " new comments whose numbers add up to a lucky number.",
+                                                inbox);
+                                    }
+                                }
+                            } catch (ApiException e) {
+                                logger.error("Unable to reply to user", e);
+                            }
                         }
                     }
                 }

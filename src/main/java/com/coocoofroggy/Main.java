@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -70,16 +71,21 @@ public class Main {
 //            }, 0, TimeUnit.SECONDS.toMillis(1));
 
             InboxReference inbox = reddit.me().inbox();
-            new Timer("Inbox").schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    try {
-                        inboxLoop(inbox);
-                    } catch (Exception e) {
-                        logger.error("Error in inboxLoop()", e);
-                    }
-                }
-            }, 0, TimeUnit.SECONDS.toMillis(10));
+            try {
+                inboxFixer(inbox);
+            } catch (InterruptedException e) {
+                logger.error("Error in inboxFixer()", e);
+            }
+//            new Timer("Inbox").schedule(new TimerTask() {
+//                @Override
+//                public void run() {
+//                    try {
+//                        inboxLoop(inbox);
+//                    } catch (Exception e) {
+//                        logger.error("Error in inboxLoop()", e);
+//                    }
+//                }
+//            }, 0, TimeUnit.SECONDS.toMillis(10));
             // endregion
         } else {
             // r/all always has a thread running
@@ -374,6 +380,79 @@ public class Main {
                     }
                 }
                 inbox.markRead(true, message.getFullName());
+            }
+        }
+    }
+
+
+    /**
+     * Reddit disabled the account by accident, so I have to go back and reply to everyone that it failed to do
+     */
+    private static void inboxFixer(InboxReference inbox) throws InterruptedException {
+        BarebonesPaginator<Message> inboxIterate = inbox.iterate("messages")
+                .limit(Paginator.RECOMMENDED_MAX_LIMIT)
+                .build();
+        // Loop through past 10 pages
+        for (int i = 0; i < 10; i++) {
+            Listing<Message> messages = inboxIterate.next();
+
+            // Every message on the page
+            for (Message message : messages) {
+                final String body = message.getBody();
+                // If there is a reply, skip. We only need to reply to the ones with nothing
+                if (!message.getReplies().isEmpty()) continue;
+                if (body.contains("/stalkme")) {
+                    UpdateResult result = MongoUtils.addUserToManualSearch(message.getAuthor());
+                    if (result.wasAcknowledged()) {
+                        if (result.getModifiedCount() > 0 || result.getUpsertedId() != null) {
+                            reply(message, """
+                                    All your new messages will now be scanned for Lucky Numbers!
+
+                                    Use `/unstalkme` to undo.
+
+                                    I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
+                        } else {
+                            reply(message, """
+                                    Your new messages are already being scanned for Lucky Numbers!
+
+                                    Use `/unstalkme` to opt out.
+
+                                    I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
+                        }
+                    } else {
+                        reply(message, """
+                                Something went wrong. Please try again!
+
+                                I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
+                    }
+                } else if (body.contains("/unstalkme")) {
+                    UpdateResult result = MongoUtils.removeUserFromManualSearch(message.getAuthor());
+                    if (result.wasAcknowledged()) {
+                        if (result.getModifiedCount() > 0 || result.getUpsertedId() != null) {
+                            reply(message, """
+                                    Your new messages will no longer be scanned for Lucky Numbers.
+
+                                    Use `/stalkme` to opt back in.
+
+                                    I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
+                        } else {
+                            reply(message, """
+                                    Your new messages are not being scanned for Lucky Numbers.
+
+                                    Use `/stalkme` to opt in.
+
+                                    I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
+                        }
+                    } else {
+                        reply(message, """
+                                Something went wrong. Please try again!
+
+                                I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
+                    }
+                } else continue;
+                // Rate limit
+                System.out.println("Sleeping for 5 sec");
+                Thread.sleep(Duration.ofSeconds(5).toMillis());
             }
         }
     }

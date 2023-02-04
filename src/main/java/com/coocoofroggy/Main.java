@@ -399,14 +399,7 @@ public class Main {
             if (message.getAuthor() == null) return;
             inbox.compose(message.getAuthor(), "Lucky Message", replyBody);
         } else {
-            try {
-                inbox.replyTo(message.getFullName(), replyBody);
-            } catch (ApiException e) {
-                // Maybe user blocked usπ
-                if (e.getCode().equals("403")) {
-                    System.out.println("Unable to reply to " + message + "\nSkipping.");
-                }
-            }
+            inbox.replyTo(message.getFullName(), replyBody);
         }
     }
 

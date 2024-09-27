@@ -15,6 +15,9 @@ FROM eclipse-temurin:20
 ENV ARTIFACT_NAME='Reddit Lucky Number Bot-1.0-all.jar'
 ENV APP_HOME=/app/
 
+# Need nc for koyeb to think it's a valid web service
+RUN apt-get update && apt-get install -y netcat
+
 WORKDIR $APP_HOME
 COPY --from=TEMP_BUILD_IMAGE $APP_HOME/build/libs/$ARTIFACT_NAME .
 COPY --from=TEMP_BUILD_IMAGE $APP_HOME/koyeb.sh .

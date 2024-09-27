@@ -6,4 +6,4 @@ while true; do
 done &
 
 # Run the Java application
-java -jar Reddit Lucky Number Bot-1.0-all.jar
+java -jar "Reddit Lucky Number Bot-1.0-all.jar"

@@ -18,6 +18,8 @@ ENV APP_HOME=/app/
 WORKDIR $APP_HOME
 COPY --from=TEMP_BUILD_IMAGE $APP_HOME/build/libs/$ARTIFACT_NAME .
 COPY --from=TEMP_BUILD_IMAGE $APP_HOME/koyeb.sh .
+RUN chmod +x ./koyeb.sh
 WORKDIR $APP_HOME
 
 ENTRYPOINT ["java", "-jar", "Reddit Lucky Number Bot-1.0-all.jar"]
+#ENTRYPOINT ["./koyeb.sh"]

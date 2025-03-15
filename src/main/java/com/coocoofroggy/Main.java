@@ -359,10 +359,14 @@ public class Main {
                 if (body.contains("/stalkme")) {
                     UpdateResult result = MongoUtils.addUserToManualSearch(message.getAuthor());
                     if (result.wasAcknowledged()) {
-                        if (result.getModifiedCount() > 0 || result.getUpsertedId() != null) {
-                            reply(message, "All your new messages will now be scanned for Lucky Numbers!\n\nUse `/unstalkme` to undo.", inbox);
-                        } else {
-                            reply(message, "Your new messages are already being scanned for Lucky Numbers!\n\nUse `/unstalkme` to opt out.", inbox);
+                        try {
+                            if (result.getModifiedCount() > 0 || result.getUpsertedId() != null) {
+                                reply(message, "All your new messages will now be scanned for Lucky Numbers!\n\nUse `/unstalkme` to undo.", inbox);
+                            } else {
+                                reply(message, "Your new messages are already being scanned for Lucky Numbers!\n\nUse `/unstalkme` to opt out.", inbox);
+                            }
+                        } catch (ApiException e) {
+                            logger.error("Unable to message user", e);
                         }
                     } else {
                         reply(message, "Something went wrong. Please try again!", inbox);
@@ -370,10 +374,14 @@ public class Main {
                 } else if (body.contains("/unstalkme")) {
                     UpdateResult result = MongoUtils.removeUserFromManualSearch(message.getAuthor());
                     if (result.wasAcknowledged()) {
-                        if (result.getModifiedCount() > 0 || result.getUpsertedId() != null) {
-                            reply(message, "Your new messages will no longer be scanned for Lucky Numbers.\n\nUse `/stalkme` to opt back in.", inbox);
-                        } else {
-                            reply(message, "Your new messages are not being scanned for Lucky Numbers.\n\nUse `/stalkme` to opt in.", inbox);
+                        try {
+                            if (result.getModifiedCount() > 0 || result.getUpsertedId() != null) {
+                                reply(message, "Your new messages will no longer be scanned for Lucky Numbers.\n\nUse `/stalkme` to opt back in.", inbox);
+                            } else {
+                                reply(message, "Your new messages are not being scanned for Lucky Numbers.\n\nUse `/stalkme` to opt in.", inbox);
+                            }
+                        } catch (ApiException e) {
+                            logger.error("Unable to message user", e);
                         }
                     } else {
                         reply(message, "Something went wrong. Please try again!", inbox);
@@ -407,22 +415,22 @@ public class Main {
                         if (result.getModifiedCount() > 0 || result.getUpsertedId() != null) {
                             reply(message, """
                                     All your new messages will now be scanned for Lucky Numbers!
-
+                                    
                                     Use `/unstalkme` to undo.
-
+                                    
                                     I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
                         } else {
                             reply(message, """
                                     Your new messages are already being scanned for Lucky Numbers!
-
+                                    
                                     Use `/unstalkme` to opt out.
-
+                                    
                                     I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
                         }
                     } else {
                         reply(message, """
                                 Something went wrong. Please try again!
-
+                                
                                 I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
                     }
                 } else if (body.contains("/unstalkme")) {
@@ -431,22 +439,22 @@ public class Main {
                         if (result.getModifiedCount() > 0 || result.getUpsertedId() != null) {
                             reply(message, """
                                     Your new messages will no longer be scanned for Lucky Numbers.
-
+                                    
                                     Use `/stalkme` to opt back in.
-
+                                    
                                     I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
                         } else {
                             reply(message, """
                                     Your new messages are not being scanned for Lucky Numbers.
-
+                                    
                                     Use `/stalkme` to opt in.
-
+                                    
                                     I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
                         }
                     } else {
                         reply(message, """
                                 Something went wrong. Please try again!
-
+                                
                                 I apologize for the delay, my account was accidentally blocked by Reddit. Everything should be working smoothly now!""", inbox);
                     }
                 } else continue;
